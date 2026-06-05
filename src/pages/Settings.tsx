@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun } from 'lucide-react';
+import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -44,14 +44,21 @@ const Settings = () => {
 
   return (
     <MobileLayout>
-      <div className="p-6 space-y-8">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
+      <header className="bg-slate-900 dark:bg-indigo-950 p-6 pb-12 rounded-b-[40px] mb-6">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="text-white/80 hover:text-white">
+            <ChevronLeft size={24} />
+          </button>
+          <h1 className="text-2xl font-bold text-white">Settings</h1>
+        </div>
+      </header>
 
+      <div className="px-6 space-y-8">
         <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
             Preferences
           </h3>
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
@@ -97,10 +104,10 @@ const Settings = () => {
         </div>
 
         <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
             Account
           </h3>
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
             <button 
               onClick={() => navigate('/profile')}
               className="w-full flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"

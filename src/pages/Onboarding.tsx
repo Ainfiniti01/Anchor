@@ -49,7 +49,7 @@ const Onboarding = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      navigate('/setup-profile');
+      navigate('/register');
     }
   };
 
@@ -57,13 +57,13 @@ const Onboarding = () => {
   const Icon = step.icon;
 
   return (
-    <div className="min-h-screen bg-white p-6 flex flex-col max-w-md mx-auto">
+    <div className="min-h-screen bg-white dark:bg-slate-950 p-6 flex flex-col max-w-md mx-auto">
       <div className="flex gap-1 mb-12 justify-center">
         {steps.map((_, i) => (
           <div 
             key={i} 
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              i === currentStep ? 'w-8 bg-indigo-600' : 'w-2 bg-slate-100'
+              i === currentStep ? 'w-8 bg-indigo-600' : 'w-2 bg-slate-100 dark:bg-slate-800'
             }`} 
           />
         ))}
@@ -77,11 +77,11 @@ const Onboarding = () => {
           exit={{ x: -20, opacity: 0 }}
           className="flex-1 flex flex-col items-center text-center justify-center"
         >
-          <div className={`w-24 h-24 ${step.bg} ${step.color} rounded-3xl flex items-center justify-center mb-8`}>
+          <div className={`w-24 h-24 ${step.bg} dark:bg-slate-900 ${step.color} rounded-3xl flex items-center justify-center mb-8`}>
             <Icon size={48} />
           </div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">{step.title}</h2>
-          <p className="text-slate-500 text-lg leading-relaxed px-4">{step.description}</p>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">{step.title}</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed px-4">{step.description}</p>
         </motion.div>
       </AnimatePresence>
 
@@ -90,7 +90,7 @@ const Onboarding = () => {
           onClick={handleNext} 
           className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
         >
-          {currentStep === steps.length - 1 ? 'Set Up My Companion' : 'Continue'}
+          {currentStep === steps.length - 1 ? 'Create My Account' : 'Continue'}
           <ChevronRight size={20} className="ml-2" />
         </Button>
       </div>
