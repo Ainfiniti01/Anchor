@@ -4,14 +4,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Check, ChevronRight, ChevronLeft } from 'lucide-react';
 
 const steps = [
   {
     id: 'welcome',
     title: 'Welcome to Anchor',
-    description: 'Anchor helps you stay in control of your habits, one check-in at a time.',
+    description: 'Anchor helps you stay in control of your habits through daily check-ins and AI support.',
     type: 'intro'
   },
   {
@@ -23,13 +23,13 @@ const steps = [
   {
     id: 'habit',
     title: 'What habit are we focusing on?',
-    options: ['Porn addiction', 'Substance use', 'Social media', 'Gaming', 'Other'],
+    options: ['Porn addiction', 'Substance use', 'Social media', 'Gaming', 'Others'],
     type: 'single'
   },
   {
     id: 'triggers',
     title: 'What triggers your urges?',
-    options: ['Boredom', 'Stress', 'Loneliness', 'Night time', 'Social pressure'],
+    options: ['Boredom', 'Stress', 'Loneliness', 'Night time', 'Emotional distress', 'Social pressure'],
     type: 'multi'
   },
   {
@@ -47,7 +47,7 @@ const steps = [
   {
     id: 'finish',
     title: 'You’re not alone.',
-    description: 'Let’s take Day 1 together.',
+    description: 'Let’s begin Day 1 together.',
     type: 'finish'
   }
 ];
@@ -55,12 +55,14 @@ const steps = [
 const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selections, setSelections] = useState<Record<string, any>>({});
+  const [customHabit, setCustomHabit] = useState('');
   const navigate = useNavigate();
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
+      // Save to Supabase logic would go here
       navigate('/home');
     }
   };
@@ -126,18 +128,34 @@ const Onboarding = () => {
                 : selections[step.id]?.includes(option);
 
               return (
-                <button
-                  key={option}
-                  onClick={() => toggleOption(option)}
-                  className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
-                    isSelected 
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
-                      : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
-                  }`}
-                >
-                  <span className="font-medium">{option}</span>
-                  {isSelected && <Check size={20} className="text-indigo-600" />}
-                </button>
+                <div key={option} className="space-y-3">
+                  <button
+                    onClick={() => toggleOption(option)}
+                    className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
+                      isSelected 
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                        : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
+                    }`}
+                  >
+                    <span className="font-medium">{option}</span>
+                    {isSelected && <Check size={20} className="text-indigo-600" />}
+                  </button>
+                  
+                  {option === 'Others' && isSelected && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="px-1"
+                    >
+                      <Input
+                        placeholder="Type your habit or addiction here"
+                        className="h-14 rounded-xl bg-slate-50 border-slate-200"
+                        value={customHabit}
+                        onChange={(e) => setCustomHabit(e.target.value)}
+                      />
+                    </motion.div>
+                  )}
+                </div>
               );
             })}
           </div>
