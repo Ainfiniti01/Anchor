@@ -1,22 +1,23 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, ChevronRight, ChevronLeft } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { Check, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const steps = [
   {
-    id: 'addiction_type',
+    id: 'habit_type',
     title: 'What habit are we focusing on?',
     options: ['Porn addiction', 'Substance use', 'Social media', 'Gaming', 'Other'],
     type: 'single'
   },
   {
-    id: 'addiction_duration',
+    id: 'habit_duration',
     title: 'How long has this been a struggle?',
     options: ['Less than 1 month', '1–6 months', '6 months – 2 years', '2+ years'],
     type: 'single'
@@ -34,13 +35,13 @@ const steps = [
     type: 'single'
   },
   {
-    id: 'notification_frequency',
+    id: 'check_in_frequency',
     title: 'Check-in frequency',
     options: ['1 per day', '2 per day', '3 per day (Recommended)'],
     type: 'single'
   },
   {
-    id: 'tone',
+    id: 'ai_tone',
     title: 'AI Personality Tone',
     options: ['Soft & supportive', 'Neutral', 'Strict accountability'],
     type: 'single'
@@ -51,14 +52,44 @@ const SetupProfile = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selections, setSelections] = useState<Record<string, any>>({});
   const [customHabit, setCustomHabit] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      showSuccess("Profile setup complete!");
-      navigate('/home');
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        showError("User not found");
+        setLoading(false);
+        return;
+      }
+
+      const finalHabit = selections.habit_type === 'Other' ? customHabit : selections.habit_type;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          habit_type: finalHabit,
+          habit_duration: selections.habit_duration,
+          triggers: selections.triggers,
+          risk_level: selections.risk_level,
+          check_in_frequency: selections.check_in_frequency,
+          ai_tone: selections.ai_tone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        showError(error.message);
+        setLoading(false);
+      } else {
+        showSuccess("Profile setup complete!");
+        navigate('/home');
+      }
     }
   };
 
@@ -131,7 +162,7 @@ const SetupProfile = () => {
                     {isSelected && <Check size={20} className="text-indigo-600" />}
                   </button>
                   
-                  {option === 'Other' && isSelected && step.id === 'addiction_type' && (
+                  {option === 'Other' && isSelected && step.id === 'habit_type' && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
@@ -155,11 +186,15 @@ const SetupProfile = () => {
       <div className="mt-8">
         <Button 
           onClick={handleNext} 
-          disabled={step.type === 'single' && !selections[step.id]}
+          disabled={loading || (step.type === 'single' && !selections[step.id])}
           className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
         >
-          {currentStep === steps.length - 1 ? 'Finish Setup' : 'Continue'}
-          <ChevronRight size={20} className="ml-2" />
+          {loading ? <Loader2 className="animate-spin" /> : (
+            <>
+              {currentStep === steps.length - 1 ? 'Finish Setup' : 'Continue'}
+              <ChevronRight size={20} className="ml-2" />
+            </>
+          )}
         </Button>
       </div>
     </div>

@@ -6,7 +6,8 @@ import { Anchor, Mail, Lock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -17,11 +18,19 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Mock login for now - in Agent mode we'll use supabase.auth.signInWithPassword
-    setTimeout(() => {
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      showError(error.message);
       setLoading(false);
+    } else {
+      showSuccess("Welcome back!");
       navigate('/home');
-    }, 1500);
+    }
   };
 
   return (

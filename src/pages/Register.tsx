@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Anchor, Mail, Lock, Loader2, UserPlus } from 'lucide-react';
+import { Mail, Lock, Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { showError, showSuccess } from '@/utils/toast';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -16,12 +18,24 @@ const Register = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      showError("Passwords do not match");
+      return;
+    }
+
     setLoading(true);
-    // Mock registration - in a real app, this would call Supabase
-    setTimeout(() => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      showError(error.message);
       setLoading(false);
+    } else {
+      showSuccess("Account created! Let's set up your profile.");
       navigate('/setup-profile');
-    }, 1500);
+    }
   };
 
   return (
