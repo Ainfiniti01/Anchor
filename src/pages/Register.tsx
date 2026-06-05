@@ -17,10 +17,10 @@ const Register = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Mock registration
+    // Mock registration - in a real app, this would call Supabase
     setTimeout(() => {
       setLoading(false);
-      navigate('/onboarding');
+      navigate('/setup-profile');
     }, 1500);
   };
 
