@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -64,7 +64,20 @@ const SetupProfile = () => {
   const [customHabit, setCustomHabit] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showError("Please log in to complete setup");
+        navigate('/login');
+      }
+      setAuthLoading(false);
+    };
+    checkAuth();
+  }, [navigate]);
 
   const isOtherSelected = selections.habit_type === 'Other';
   const isOtherValid = !isOtherSelected || (isOtherSelected && customHabit.trim().length > 0);
@@ -75,11 +88,14 @@ const SetupProfile = () => {
       setCurrentStep(prev => prev + 1);
     } else {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      // Use getSession for faster/more reliable session retrieval
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       
       if (!user) {
-        showError("User not found");
+        showError("Authentication session lost. Please log in again.");
         setLoading(false);
+        navigate('/login');
         return;
       }
 
@@ -128,6 +144,14 @@ const SetupProfile = () => {
       setSelections({ ...selections, [step.id]: updated });
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
+      </div>
+    );
+  }
 
   const step = steps[currentStep];
 
