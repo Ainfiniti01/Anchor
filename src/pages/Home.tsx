@@ -32,7 +32,7 @@ const Home = () => {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    const name = profile?.display_name || 'Friend';
+    const name = profile?.display_name;
     
     if (hour >= 5 && hour < 12) return `Good morning, ${name}.`;
     if (hour >= 12 && hour < 17) return `Good afternoon, ${name}.`;
