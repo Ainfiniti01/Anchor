@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft, Lock, Fingerprint, ShieldOff } from 'lucide-react';
+import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft, Lock, Fingerprint, ShieldOff, Clock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
