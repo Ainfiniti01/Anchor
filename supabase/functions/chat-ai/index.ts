@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -19,15 +18,13 @@ serve(async (req) => {
 
     if (!supabaseUrl || !supabaseKey || !groqKey) {
       console.error("[chat-ai] Missing environment variables");
-      throw new Error("Server configuration error");
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500, headers: corsHeaders });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey)
     
-    // Authenticate user
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      console.error("[chat-ai] No authorization header");
       return new Response(JSON.stringify({ error: 'No authorization header' }), { status: 401, headers: corsHeaders })
     }
 
@@ -39,32 +36,36 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
     }
 
-    const { message } = await req.json()
-    console.log(`[chat-ai] Processing message for user: ${user.id}`);
+    const body = await req.json().catch(() => ({}));
+    const message = body.message;
 
-    // 1. Fetch Context Data with error handling
-    const [profileRes, summaryRes, memoriesRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
-      supabase.from('user_memories').select('*').eq('user_id', user.id).gte('importance_score', 3).order('importance_score', { ascending: false }).limit(5)
-    ])
-
-    if (profileRes.error && profileRes.error.code !== 'PGRST116') {
-      console.error("[chat-ai] Profile fetch error:", profileRes.error);
+    if (!message) {
+      return new Response(JSON.stringify({ error: 'Message is required' }), { status: 400, headers: corsHeaders });
     }
 
-    const profile = profileRes.data || { ai_tone: 'supportive', habit_type: 'unknown', risk_level: 'low', risk_score: 0 };
-    const summary = summaryRes.data;
-    const memories = memoriesRes.data || [];
+    console.log(`[chat-ai] Fetching context for user: ${user.id}`);
+
+    // Fetch context with individual error handling to prevent 500s on missing records
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    const { data: summary } = await supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single();
+    const { data: memories } = await supabase.from('user_memories')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('importance_score', 3)
+      .order('importance_score', { ascending: false })
+      .limit(5);
+
+    const safeProfile = profile || { ai_tone: 'supportive', habit_type: 'unknown', risk_level: 'low', risk_score: 0 };
+    const safeMemories = memories || [];
 
     const prompt = `
 You are Anchor, a supportive accountability companion.
-STYLE: ${profile.ai_tone || 'supportive'}
-RISK: ${profile.risk_level || 'low'} (${profile.risk_score || 0}/10)
+STYLE: ${safeProfile.ai_tone || 'supportive'}
+RISK: ${safeProfile.risk_level || 'low'} (${safeProfile.risk_score || 0}/10)
 
 SUMMARY: ${summary?.emotional_profile ?? "New user - no history yet."}
 IDENTITY ANCHORS:
-${memories.length > 0 ? memories.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n') : "No identity anchors set yet."}
+${safeMemories.length > 0 ? safeMemories.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n') : "No identity anchors set yet."}
 
 USER: ${message}
 
@@ -75,7 +76,7 @@ RULES:
 - Never judge or shame.
 `
 
-    console.log("[chat-ai] Calling Groq API...");
+    console.log("[chat-ai] Calling Groq API with model llama3-8b-8192...");
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { 
@@ -83,7 +84,7 @@ RULES:
         "Content-Type": "application/json" 
       },
       body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
+        model: "llama3-8b-8192",
         messages: [
           { role: "system", content: "You are Anchor, a supportive companion." }, 
           { role: "user", content: prompt }
@@ -94,39 +95,35 @@ RULES:
     })
 
     if (!groqResponse.ok) {
-      const errorData = await groqResponse.text();
-      console.error("[chat-ai] Groq API error:", errorData);
-      throw new Error(`AI Service Error: ${groqResponse.status}`);
+      const errorText = await groqResponse.text();
+      console.error("[chat-ai] Groq API error:", errorText);
+      return new Response(JSON.stringify({ error: 'AI Service Error' }), { status: 502, headers: corsHeaders });
     }
 
-    const data = await groqResponse.json()
-    const aiReply = data.choices?.[0]?.message?.content || "I'm here to support you. How are you feeling right now?";
+    const groqData = await groqResponse.json();
+    const aiReply = groqData.choices?.[0]?.message?.content || "I'm here for you. How are you feeling?";
 
-    // 2. Increment Counter & Trigger Compression if needed (Async)
-    const newCount = (profile.messages_since_last_summary || 0) + 1
-    supabase.from('profiles').update({ messages_since_last_summary: newCount }).eq('id', user.id)
-      .then(({ error }) => {
-        if (error) console.error("[chat-ai] Failed to update message counter:", error);
-        
-        if (newCount >= 10) {
-          console.log("[chat-ai] Triggering memory compression...");
-          fetch(`${supabaseUrl}/functions/v1/summarize-memory`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id })
-          }).catch(e => console.error("[chat-ai] Summary trigger failed:", e))
-        }
-      });
+    // Async updates
+    const newCount = (safeProfile.messages_since_last_summary || 0) + 1;
+    supabase.from('profiles').update({ messages_since_last_summary: newCount }).eq('id', user.id).then(() => {
+      if (newCount >= 10) {
+        fetch(`${supabaseUrl}/functions/v1/summarize-memory`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id })
+        }).catch(e => console.error("[chat-ai] Summary trigger failed:", e));
+      }
+    });
 
     return new Response(JSON.stringify({ reply: aiReply }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    })
+    });
 
   } catch (error: any) {
     console.error("[chat-ai] Critical error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), { 
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
       status: 500, 
       headers: corsHeaders 
-    })
+    });
   }
 })
