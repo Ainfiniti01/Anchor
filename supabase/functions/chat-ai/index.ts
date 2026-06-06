@@ -76,7 +76,7 @@ RULES:
 - Never judge or shame.
 `
 
-    console.log("[chat-ai] Calling Groq API with model llama3-8b-8192...");
+    console.log("[chat-ai] Calling Groq API with model llama-3.3-70b-versatile...");
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { 
@@ -84,7 +84,7 @@ RULES:
         "Content-Type": "application/json" 
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: "You are Anchor, a supportive companion." }, 
           { role: "user", content: prompt }
