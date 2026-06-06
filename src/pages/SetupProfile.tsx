@@ -88,7 +88,6 @@ const SetupProfile = () => {
       setCurrentStep(prev => prev + 1);
     } else {
       setLoading(true);
-      // Use getSession for faster/more reliable session retrieval
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       
@@ -101,7 +100,8 @@ const SetupProfile = () => {
 
       const finalHabit = selections.habit_type === 'Other' ? customHabit : selections.habit_type;
 
-      const { error } = await supabase
+      // 1. Update profile data
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           habit_type: finalHabit,
@@ -111,18 +111,28 @@ const SetupProfile = () => {
           check_in_frequency: selections.check_in_frequency,
           ai_tone: selections.ai_tone,
           privacy_lock_type: selections.privacy_lock,
-          pin_code: selections.privacy_lock === 'pin' ? pin : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 
-      if (error) {
-        showError(error.message);
+      if (profileError) {
+        showError(profileError.message);
         setLoading(false);
-      } else {
-        showSuccess("Profile setup complete!");
-        navigate('/home');
+        return;
       }
+
+      // 2. Set PIN securely if selected
+      if (selections.privacy_lock === 'pin' && pin) {
+        const { error: pinError } = await supabase.rpc('set_user_pin', { p_pin: pin });
+        if (pinError) {
+          showError("Failed to set PIN securely");
+          setLoading(false);
+          return;
+        }
+      }
+
+      showSuccess("Profile setup complete!");
+      navigate('/home');
     }
   };
 

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, Fingerprint, Delete, ChevronLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Lock, Fingerprint, Delete } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
@@ -14,13 +14,12 @@ interface PrivacyLockProps {
 const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   const [pin, setPin] = useState('');
   const [lockType, setLockType] = useState<'pin' | 'biometric' | 'none'>('none');
-  const [storedPin, setStoredPin] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Don't show lock on auth pages
   const publicPaths = ['/', '/login', '/register', '/forgot-password', '/onboarding'];
   const isPublicPath = publicPaths.includes(location.pathname);
 
@@ -30,14 +29,12 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
       if (user && !isPublicPath) {
         const { data } = await supabase
           .from('profiles')
-          .select('privacy_lock_type, pin_code')
+          .select('privacy_lock_type')
           .eq('id', user.id)
           .single();
         
         if (data) {
           setLockType(data.privacy_lock_type as any);
-          setStoredPin(data.pin_code ? String(data.pin_code) : null);
-          
           if (data.privacy_lock_type === 'biometric') {
             handleBiometric();
           }
@@ -53,24 +50,36 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   }, [location.pathname]);
 
   const handleBiometric = async () => {
-    // Simulate biometric success for demo
     setTimeout(() => {
       setIsUnlocked(true);
       onUnlock();
     }, 1000);
   };
 
-  const handleKeyPress = (num: string) => {
-    if (pin.length < 4) {
+  const handleKeyPress = async (num: string) => {
+    if (pin.length < 4 && !verifying) {
       const newPin = pin + num;
       setPin(newPin);
+      
       if (newPin.length === 4) {
-        if (newPin === storedPin) {
-          setIsUnlocked(true);
-          onUnlock();
-        } else {
-          showError("Incorrect PIN");
+        setVerifying(true);
+        try {
+          const { data: isValid, error } = await supabase.rpc('verify_user_pin', { p_pin: newPin });
+          
+          if (error) throw error;
+
+          if (isValid) {
+            setIsUnlocked(true);
+            onUnlock();
+          } else {
+            showError("Incorrect PIN");
+            setPin('');
+          }
+        } catch (err) {
+          showError("Verification failed");
           setPin('');
+        } finally {
+          setVerifying(false);
         }
       }
     }
@@ -78,7 +87,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
 
   const handleForgotPin = async () => {
     await supabase.auth.signOut();
-    setIsUnlocked(true); // Hide lock to allow navigation
+    setIsUnlocked(true);
     navigate('/login');
   };
 
@@ -112,8 +121,9 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
             <button
               key={num}
+              disabled={verifying}
               onClick={() => handleKeyPress(num.toString())}
-              className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
+              className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50"
             >
               {num}
             </button>
@@ -126,14 +136,16 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
             )}
           </div>
           <button
+            disabled={verifying}
             onClick={() => handleKeyPress('0')}
-            className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
+            className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50"
           >
             0
           </button>
           <button
+            disabled={verifying}
             onClick={() => setPin(pin.slice(0, -1))}
-            className="flex items-center justify-center text-slate-400"
+            className="flex items-center justify-center text-slate-400 disabled:opacity-50"
           >
             <Delete size={24} />
           </button>
