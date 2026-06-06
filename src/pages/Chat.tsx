@@ -86,21 +86,21 @@ const Chat = () => {
     setIsTyping(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("User not authenticated");
 
       // Fetch profile for AI context
       const { data: profile } = await supabase
         .from('profiles')
         .select('habit_type, habit_duration, risk_level, triggers')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single();
 
       const response = await fetch('https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/chat-ai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           message: userText,
@@ -110,11 +110,14 @@ const Chat = () => {
             risk_level: profile?.risk_level || '',
             triggers: profile?.triggers || []
           },
-          user_id: user.id
+          user_id: session.user.id
         })
       });
 
-      if (!response.ok) throw new Error("Failed to connect to AI");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to connect to AI (Status: ${response.status})`);
+      }
 
       const data = await response.json();
       const aiReply = data.reply;
@@ -128,9 +131,9 @@ const Chat = () => {
 
       setMessages(prev => [...prev, aiMsg]);
       saveMessage('ai', aiReply);
-    } catch (error) {
+    } catch (error: any) {
       showError("Unable to connect to Anchor right now. Please try again.");
-      console.error("AI Chat Error:", error);
+      console.error("AI Chat Error:", error.message || error);
     } finally {
       setIsTyping(false);
     }
