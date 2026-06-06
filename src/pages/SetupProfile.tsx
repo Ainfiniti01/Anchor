@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ const steps = [
   {
     id: 'habit_type',
     title: 'What habit are we focusing on?',
-    options: ['Porn addiction', 'Substance use', 'Social media', 'Gaming', 'Other'],
+    options: ['Porn Addiction', 'Substance Use', 'Social Media', 'Gaming', 'Other'],
     type: 'single'
   },
   {
@@ -25,7 +25,7 @@ const steps = [
   {
     id: 'triggers',
     title: 'What triggers your urges?',
-    options: ['Boredom', 'Stress', 'Loneliness', 'Night time', 'Emotional distress', 'Social pressure'],
+    options: ['Boredom', 'Stress', 'Loneliness', 'Night Time', 'Emotional Distress', 'Social Pressure'],
     type: 'multi'
   },
   {
@@ -36,14 +36,14 @@ const steps = [
   },
   {
     id: 'check_in_frequency',
-    title: 'Check-in frequency',
-    options: ['1 per day', '2 per day', '3 per day (Recommended)'],
+    title: 'Notification frequency',
+    options: ['1 daily', '2 daily', '3 daily'],
     type: 'single'
   },
   {
     id: 'ai_tone',
-    title: 'AI Personality Tone',
-    options: ['Soft & supportive', 'Neutral', 'Strict accountability'],
+    title: 'AI Companion Style',
+    options: ['Supportive Friend', 'Neutral Companion', 'Accountability Coach'],
     type: 'single'
   }
 ];
@@ -54,6 +54,9 @@ const SetupProfile = () => {
   const [customHabit, setCustomHabit] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const isOtherSelected = selections.habit_type === 'Other';
+  const isOtherValid = !isOtherSelected || (isOtherSelected && customHabit.trim().length > 0);
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
@@ -95,7 +98,7 @@ const SetupProfile = () => {
 
   const handleBack = () => {
     if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep(prev => prev + 1);
     }
   };
 
@@ -186,7 +189,7 @@ const SetupProfile = () => {
       <div className="mt-8">
         <Button 
           onClick={handleNext} 
-          disabled={loading || (step.type === 'single' && !selections[step.id])}
+          disabled={loading || (step.type === 'single' && !selections[step.id]) || (step.id === 'habit_type' && !isOtherValid)}
           className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
         >
           {loading ? <Loader2 className="animate-spin" /> : (

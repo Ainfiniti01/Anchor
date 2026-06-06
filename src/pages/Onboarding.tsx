@@ -17,24 +17,24 @@ const steps = [
   },
   {
     id: 'trust',
-    title: 'No Judgment. No Pressure.',
-    description: 'Just support. Anchor is a safe space for you to track your journey and find strength.',
+    title: 'Private, judgment-free accountability',
+    description: 'Anchor is a safe space for you to track your journey and find strength without fear of exposure.',
     icon: Heart,
     color: 'text-rose-500',
     bg: 'bg-rose-50'
   },
   {
     id: 'features',
-    title: 'What Anchor Does',
-    description: 'Daily check-ins, AI companion chat, habit tracking, and progress insights to keep you grounded.',
+    title: 'Daily check-ins, progress tracking, and AI support',
+    description: 'Get personalized insights and real-time support whenever you need it most.',
     icon: Zap,
     color: 'text-amber-500',
     bg: 'bg-amber-50'
   },
   {
-    id: 'ready',
-    title: 'Ready to Begin?',
-    description: 'Let’s set up your companion to match your specific needs and goals.',
+    id: 'privacy',
+    title: 'Your information remains private',
+    description: 'Sensitive details are never displayed in notifications. Your privacy is our top priority.',
     icon: Sparkles,
     color: 'text-emerald-500',
     bg: 'bg-emerald-50'
@@ -90,7 +90,7 @@ const Onboarding = () => {
           onClick={handleNext} 
           className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
         >
-          {currentStep === steps.length - 1 ? 'Create My Account' : 'Continue'}
+          {currentStep === steps.length - 1 ? 'Set Up My Companion' : 'Continue'}
           <ChevronRight size={20} className="ml-2" />
         </Button>
       </div>

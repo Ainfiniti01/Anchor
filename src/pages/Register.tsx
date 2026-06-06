@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, Loader2, UserPlus } from 'lucide-react';
+import { Mail, Lock, Loader2, UserPlus, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { showError, showSuccess } from '@/utils/toast';
 
 const Register = () => {
   const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,11 @@ const Register = () => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          display_name: displayName,
+        }
+      }
     });
 
     if (error) {
@@ -51,6 +57,19 @@ const Register = () => {
 
         <Card className="p-6 rounded-3xl border-none shadow-2xl">
           <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <div className="relative">
+                <User className="absolute left-3 top-3 text-slate-400" size={20} />
+                <Input
+                  type="text"
+                  placeholder="Full Name / Display Name"
+                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <div className="relative">
                 <Mail className="absolute left-3 top-3 text-slate-400" size={20} />

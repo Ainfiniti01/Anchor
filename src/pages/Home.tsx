@@ -1,26 +1,66 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, Calendar } from 'lucide-react';
+import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, Calendar, ShieldAlert, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import MobileLayout from '@/components/MobileLayout';
+import { supabase } from '@/integrations/supabase/client';
 
 const Home = () => {
   const navigate = useNavigate();
+  const [profile, setProfile] = useState<any>(null);
+  const [showBanner, setShowBanner] = useState(true);
+  const [isVerified, setIsVerified] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setIsVerified(!!user.email_confirmed_at);
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setProfile(data);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    const name = profile?.display_name || 'Friend';
+    if (hour < 12) return `Good morning, ${name}`;
+    if (hour < 18) return `Hello, ${name}`;
+    return `Welcome back, ${name}`;
+  };
 
   return (
     <MobileLayout>
+      {!isVerified && showBanner && (
+        <div className="bg-amber-50 border-b border-amber-100 p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-amber-800 text-xs font-medium">
+            <ShieldAlert size={16} />
+            <span>Verify your email to secure your account and enable recovery.</span>
+          </div>
+          <button onClick={() => setShowBanner(false)} className="text-amber-400">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="p-6 space-y-6">
         <header className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Hello, Friend</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{getGreeting()}</h1>
             <p className="text-slate-500">Let's stay strong today.</p>
           </div>
           <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-4 py-2 rounded-2xl flex items-center gap-2 font-bold">
             <Flame size={20} />
-            <span>5 Days</span>
+            <span>{profile?.current_streak || 0} Days</span>
           </div>
         </header>
 
@@ -57,7 +97,7 @@ const Home = () => {
               <AlertCircle size={20} />
             </div>
             <span className="text-xs text-slate-500 font-medium">Urge Level</span>
-            <span className="font-bold text-slate-900 dark:text-white">Low</span>
+            <span className="font-bold text-slate-900 dark:text-white">{profile?.risk_level || 'Low'}</span>
           </Card>
         </div>
 
