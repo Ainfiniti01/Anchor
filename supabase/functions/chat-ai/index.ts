@@ -7,72 +7,126 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
 
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const groqKey = Deno.env.get('GROQ_API_KEY')
+
+    if (!supabaseUrl || !supabaseKey || !groqKey) {
+      console.error("[chat-ai] Missing environment variables");
+      throw new Error("Server configuration error");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    
+    // Authenticate user
     const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    const { data: { user } } = await supabase.auth.getUser(token)
-    if (!user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    if (!authHeader) {
+      console.error("[chat-ai] No authorization header");
+      return new Response(JSON.stringify({ error: 'No authorization header' }), { status: 401, headers: corsHeaders })
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      console.error("[chat-ai] Auth error:", authError);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+    }
 
     const { message } = await req.json()
+    console.log(`[chat-ai] Processing message for user: ${user.id}`);
 
-    // 1. Fetch Context Data
+    // 1. Fetch Context Data with error handling
     const [profileRes, summaryRes, memoriesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
       supabase.from('user_memories').select('*').eq('user_id', user.id).gte('importance_score', 3).order('importance_score', { ascending: false }).limit(5)
     ])
 
-    const profile = profileRes.data
-    const summary = summaryRes.data
-    const memories = memoriesRes.data
+    if (profileRes.error && profileRes.error.code !== 'PGRST116') {
+      console.error("[chat-ai] Profile fetch error:", profileRes.error);
+    }
+
+    const profile = profileRes.data || { ai_tone: 'supportive', habit_type: 'unknown', risk_level: 'low', risk_score: 0 };
+    const summary = summaryRes.data;
+    const memories = memoriesRes.data || [];
 
     const prompt = `
 You are Anchor, a supportive accountability companion.
-STYLE: ${profile.ai_tone}
-RISK: ${profile.risk_level} (${profile.risk_score}/10)
+STYLE: ${profile.ai_tone || 'supportive'}
+RISK: ${profile.risk_level || 'low'} (${profile.risk_score || 0}/10)
 
-SUMMARY: ${summary?.emotional_profile ?? "New user"}
+SUMMARY: ${summary?.emotional_profile ?? "New user - no history yet."}
 IDENTITY ANCHORS:
-${memories?.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n')}
+${memories.length > 0 ? memories.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n') : "No identity anchors set yet."}
 
 USER: ${message}
 
 RULES:
-- Use Priority 4-5 memories as "Identity Anchors".
+- Use Priority 4-5 memories as "Identity Anchors" if available.
 - Ask ONE reflective question.
-- Keep it short and human-like.
+- Keep it short and human-like (1-2 paragraphs).
 - Never judge or shame.
 `
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    console.log("[chat-ai] Calling Groq API...");
+    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`, "Content-Type": "application/json" },
+      headers: { 
+        "Authorization": `Bearer ${groqKey}`, 
+        "Content-Type": "application/json" 
+      },
       body: JSON.stringify({
         model: "llama-3.1-70b-versatile",
-        messages: [{ role: "system", content: "You are Anchor, a supportive companion." }, { role: "user", content: prompt }]
+        messages: [
+          { role: "system", content: "You are Anchor, a supportive companion." }, 
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
       }),
     })
 
-    const data = await response.json()
-    const aiReply = data.choices[0].message.content
-
-    // 2. Increment Counter & Trigger Compression if needed
-    const newCount = (profile.messages_since_last_summary || 0) + 1
-    await supabase.from('profiles').update({ messages_since_last_summary: newCount }).eq('id', user.id)
-
-    if (newCount >= 10) {
-      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/summarize-memory`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id })
-      }).catch(e => console.error("Summary trigger failed", e))
+    if (!groqResponse.ok) {
+      const errorData = await groqResponse.text();
+      console.error("[chat-ai] Groq API error:", errorData);
+      throw new Error(`AI Service Error: ${groqResponse.status}`);
     }
 
-    return new Response(JSON.stringify({ reply: aiReply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+    const data = await groqResponse.json()
+    const aiReply = data.choices?.[0]?.message?.content || "I'm here to support you. How are you feeling right now?";
+
+    // 2. Increment Counter & Trigger Compression if needed (Async)
+    const newCount = (profile.messages_since_last_summary || 0) + 1
+    supabase.from('profiles').update({ messages_since_last_summary: newCount }).eq('id', user.id)
+      .then(({ error }) => {
+        if (error) console.error("[chat-ai] Failed to update message counter:", error);
+        
+        if (newCount >= 10) {
+          console.log("[chat-ai] Triggering memory compression...");
+          fetch(`${supabaseUrl}/functions/v1/summarize-memory`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id })
+          }).catch(e => console.error("[chat-ai] Summary trigger failed:", e))
+        }
+      });
+
+    return new Response(JSON.stringify({ reply: aiReply }), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    })
+
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
+    console.error("[chat-ai] Critical error:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500, 
+      headers: corsHeaders 
+    })
   }
 })
