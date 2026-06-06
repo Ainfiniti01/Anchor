@@ -4,87 +4,83 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get user from Auth header
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const authHeader = req.headers.get('Authorization')
     const token = authHeader?.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
-    }
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (!user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
 
     const { message } = await req.json()
 
-    // Fetch full context from Memory System
-    const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single()
-    const { data: summary } = await supabaseClient.from('user_ai_summaries').select('*').eq('user_id', user.id).single()
-    const { data: memories } = await supabaseClient.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(5)
+    // 1. Build Context Object
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    const { data: summary } = await supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single()
+    
+    // 2. Memory Filtering Rule: Importance >= 3, Limit 5
+    const { data: memories } = await supabase.from('user_memories')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('importance_score', 3)
+      .order('importance_score', { ascending: false })
+      .limit(5)
+
+    const context = {
+      profile: { habit: profile.habit_type, streak: profile.current_streak, risk: profile.risk_score, level: profile.risk_level },
+      ai_summary: summary,
+      top_memories: memories,
+      style: profile.ai_tone
+    }
 
     const prompt = `
-You are Anchor, an AI behavioral companion.
+You are Anchor. 
+STYLE: ${context.style}
+RISK: ${context.profile.level} (${context.profile.risk}/10)
 
-AI STYLE: ${profile?.ai_tone ?? "Supportive Friend"}
+SUMMARY: ${context.ai_summary?.emotional_profile ?? "New user"}
+IDENTITY ANCHORS:
+${context.top_memories?.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n')}
 
-USER PROFILE:
-- Focus: ${profile?.habit_type}
-- Risk Level: ${profile?.risk_level} (Score: ${profile?.risk_score}/10)
-- Streak: ${profile?.current_streak} days
-
-COMPRESSED MEMORY (AI SUMMARY):
-- Emotional Profile: ${summary?.emotional_profile ?? "New user"}
-- Motivation: ${summary?.motivation_summary ?? "Not yet analyzed"}
-- Patterns: ${summary?.relapse_pattern_summary ?? "No patterns detected"}
-
-PERSONAL MEMORIES/GOALS:
-${memories?.map(m => `- [${m.memory_type}] ${m.content}`).join('\n') ?? "None shared yet"}
-
-USER MESSAGE:
-${message}
+USER: ${message}
 
 RULES:
-1. Adapt tone to ${profile?.ai_tone}.
-2. Use personal goals/memories to reinforce identity.
-3. Ask ONLY ONE reflective question.
-4. Keep it short (1-2 paragraphs).
-5. Never judge.
+- Use Priority 4-5 memories as "Identity Anchors".
+- Ask ONE reflective question.
+- Keep it short.
 `
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "llama-3.1-70b-versatile",
-        messages: [
-          { role: "system", content: "You are Anchor, a supportive accountability companion." },
-          { role: "user", content: prompt }
-        ]
+        messages: [{ role: "system", content: "You are Anchor, a supportive companion." }, { role: "user", content: prompt }]
       }),
     })
 
     const data = await response.json()
-    return new Response(JSON.stringify({ reply: data.choices[0].message.content }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    })
+    const aiReply = data.choices[0].message.content
 
+    // 3. Increment Message Counter & Check for Compression
+    const newCount = (profile.messages_since_last_summary || 0) + 1
+    await supabase.from('profiles').update({ messages_since_last_summary: newCount }).eq('id', user.id)
+
+    if (newCount >= 10) {
+      // Trigger async summarization (fire and forget)
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/summarize-memory`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id })
+      }).catch(e => console.error("Summary trigger failed", e))
+    }
+
+    return new Response(JSON.stringify({ reply: aiReply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
   } catch (error: any) {
-    console.error("[chat-ai] Error:", error.message)
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
   }
 })
