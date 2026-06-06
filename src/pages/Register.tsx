@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, Loader2, UserPlus, User } from 'lucide-react';
+import { Mail, Lock, Loader2, UserPlus, User, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -15,6 +15,7 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -39,10 +40,52 @@ const Register = () => {
       showError(error.message);
       setLoading(false);
     } else {
-      showSuccess("Account created! Let's set up your profile.");
-      navigate('/setup-profile');
+      setIsSuccess(true);
+      setLoading(false);
     }
   };
+
+  const handleResendEmail = async () => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+    });
+    if (error) showError(error.message);
+    else showSuccess("Verification email resent!");
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6">
+        <Card className="w-full max-w-md p-8 rounded-[40px] border-none shadow-2xl text-center space-y-6">
+          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-3xl flex items-center justify-center mx-auto">
+            <CheckCircle2 size={48} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-slate-900">Account created successfully.</h1>
+            <p className="text-slate-500 leading-relaxed">
+              We've sent a verification email to your inbox. You can continue using Anchor while your email remains unverified.
+            </p>
+          </div>
+          <div className="space-y-3 pt-4">
+            <Button 
+              onClick={() => navigate('/setup-profile')}
+              className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-bold text-lg"
+            >
+              Continue to App
+            </Button>
+            <Button 
+              variant="ghost"
+              onClick={handleResendEmail}
+              className="w-full h-14 rounded-2xl text-indigo-600 font-bold"
+            >
+              Resend Verification Email
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6">
