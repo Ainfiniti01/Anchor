@@ -1,13 +1,48 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, User, Mail, Calendar, Shield, Edit2 } from 'lucide-react';
+import { ChevronLeft, User, Mail, Calendar, Shield, Edit2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 
 const Profile = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      setUserData({
+        email: user.email,
+        displayName: profile?.display_name || 'User',
+        habitType: profile?.habit_type || 'Not set',
+        frequency: profile?.check_in_frequency || 'Not set',
+        createdAt: new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      });
+      setLoading(false);
+    };
+
+    fetchProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col max-w-md mx-auto">
@@ -37,8 +72,8 @@ const Profile = () => {
       </header>
 
       <div className="mt-16 px-6 flex flex-col items-center mb-8">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">User Name</h2>
-        <p className="text-slate-500 dark:text-slate-400">Member since Oct 2023</p>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{userData.displayName}</h2>
+        <p className="text-slate-500 dark:text-slate-400">Member since {userData.createdAt}</p>
       </div>
 
       <div className="px-6 space-y-4">
@@ -48,7 +83,7 @@ const Profile = () => {
           </div>
           <div>
             <p className="text-xs text-slate-400 font-bold uppercase">Email</p>
-            <p className="font-medium text-slate-700 dark:text-slate-200">user@example.com</p>
+            <p className="font-medium text-slate-700 dark:text-slate-200">{userData.email}</p>
           </div>
         </Card>
 
@@ -58,7 +93,7 @@ const Profile = () => {
           </div>
           <div>
             <p className="text-xs text-slate-400 font-bold uppercase">Focus Habit</p>
-            <p className="font-medium text-slate-700 dark:text-slate-200">Porn addiction</p>
+            <p className="font-medium text-slate-700 dark:text-slate-200">{userData.habitType}</p>
           </div>
         </Card>
 
@@ -68,7 +103,7 @@ const Profile = () => {
           </div>
           <div>
             <p className="text-xs text-slate-400 font-bold uppercase">Check-in Frequency</p>
-            <p className="font-medium text-slate-700 dark:text-slate-200">3 times per day</p>
+            <p className="font-medium text-slate-700 dark:text-slate-200">{userData.frequency}</p>
           </div>
         </Card>
       </div>

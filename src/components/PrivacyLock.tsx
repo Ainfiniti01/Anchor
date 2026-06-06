@@ -29,7 +29,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
         
         if (data) {
           setLockType(data.privacy_lock_type as any);
-          setStoredPin(data.pin_code);
+          setStoredPin(data.pin_code ? String(data.pin_code) : null);
           
           if (data.privacy_lock_type === 'biometric') {
             handleBiometric();
@@ -42,8 +42,6 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   }, []);
 
   const handleBiometric = async () => {
-    // In a real web app, we'd use WebAuthn. For this demo, we simulate success.
-    // Most mobile wrappers (Capacitor/Cordova) would trigger native biometrics here.
     setTimeout(() => {
       onUnlock();
     }, 1000);
