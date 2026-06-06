@@ -10,19 +10,25 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    
     const { user_id } = await req.json()
+    console.log(`[summarize-memory] Starting compression for user: ${user_id}`)
 
-    // Fetch raw data for compression
-    const { data: logs } = await supabase.from('behavioral_logs').select('*').eq('user_id', user_id).order('created_at', { ascending: false }).limit(20)
-    const { data: messages } = await supabase.from('chat_messages').select('*').eq('user_id', user_id).order('created_at', { ascending: false }).limit(20)
+    // 1. Fetch last 50 messages + logs
+    const [messagesRes, logsRes, profileRes] = await Promise.all([
+      supabase.from('chat_messages').select('*').eq('user_id', user_id).order('created_at', { ascending: false }).limit(50),
+      supabase.from('behavioral_logs').select('*').eq('user_id', user_id).order('created_at', { ascending: false }).limit(50),
+      supabase.from('profiles').select('*').eq('id', user_id).single()
+    ])
 
     const prompt = `
-Summarize the following user data into a structured JSON format for an AI accountability companion.
-LOGS: ${JSON.stringify(logs)}
-MESSAGES: ${JSON.stringify(messages)}
+Summarize this user into a behavioral intelligence profile.
+Return JSON ONLY.
 
-OUTPUT JSON FORMAT:
 {
   "emotional_profile": "string",
   "motivation_summary": "string",
@@ -30,33 +36,41 @@ OUTPUT JSON FORMAT:
   "risk_behavior_patterns": "string",
   "metadata": { "key_triggers": [], "progress_notes": "string" }
 }
+
+USER PROFILE: ${JSON.stringify(profileRes.data)}
+MESSAGES: ${JSON.stringify(messagesRes.data)}
+LOGS: ${JSON.stringify(logsRes.data)}
 `
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const aiRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`, "Content-Type": "application/json" },
+      headers: {
+        "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`,
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         model: "llama-3.1-8b-instant",
         response_format: { type: "json_object" },
         messages: [{ role: "system", content: "You are a behavioral data analyst." }, { role: "user", content: prompt }]
-      }),
+      })
     })
 
-    const aiResult = await response.json()
-    const summary = JSON.parse(aiResult.choices[0].message.content)
+    const data = await aiRes.json()
+    const summary = JSON.parse(data.choices[0].message.content)
 
-    // Update the summary table
+    // 2. Save structured summary
     await supabase.from('user_ai_summaries').upsert({
       user_id,
       ...summary,
       last_updated: new Date().toISOString()
     })
 
-    // Reset counter
+    // 3. Reset counter
     await supabase.from('profiles').update({ messages_since_last_summary: 0 }).eq('id', user_id)
 
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
   } catch (error: any) {
+    console.error("[summarize-memory] Error:", error.message)
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
   }
 })

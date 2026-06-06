@@ -18,40 +18,33 @@ serve(async (req) => {
 
     const { message } = await req.json()
 
-    // 1. Build Context Object
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    const { data: summary } = await supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single()
-    
-    // 2. Memory Filtering Rule: Importance >= 3, Limit 5
-    const { data: memories } = await supabase.from('user_memories')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('importance_score', 3)
-      .order('importance_score', { ascending: false })
-      .limit(5)
+    // 1. Fetch Context Data
+    const [profileRes, summaryRes, memoriesRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
+      supabase.from('user_memories').select('*').eq('user_id', user.id).gte('importance_score', 3).order('importance_score', { ascending: false }).limit(5)
+    ])
 
-    const context = {
-      profile: { habit: profile.habit_type, streak: profile.current_streak, risk: profile.risk_score, level: profile.risk_level },
-      ai_summary: summary,
-      top_memories: memories,
-      style: profile.ai_tone
-    }
+    const profile = profileRes.data
+    const summary = summaryRes.data
+    const memories = memoriesRes.data
 
     const prompt = `
-You are Anchor. 
-STYLE: ${context.style}
-RISK: ${context.profile.level} (${context.profile.risk}/10)
+You are Anchor, a supportive accountability companion.
+STYLE: ${profile.ai_tone}
+RISK: ${profile.risk_level} (${profile.risk_score}/10)
 
-SUMMARY: ${context.ai_summary?.emotional_profile ?? "New user"}
+SUMMARY: ${summary?.emotional_profile ?? "New user"}
 IDENTITY ANCHORS:
-${context.top_memories?.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n')}
+${memories?.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n')}
 
 USER: ${message}
 
 RULES:
 - Use Priority 4-5 memories as "Identity Anchors".
 - Ask ONE reflective question.
-- Keep it short.
+- Keep it short and human-like.
+- Never judge or shame.
 `
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -66,12 +59,11 @@ RULES:
     const data = await response.json()
     const aiReply = data.choices[0].message.content
 
-    // 3. Increment Message Counter & Check for Compression
+    // 2. Increment Counter & Trigger Compression if needed
     const newCount = (profile.messages_since_last_summary || 0) + 1
     await supabase.from('profiles').update({ messages_since_last_summary: newCount }).eq('id', user.id)
 
     if (newCount >= 10) {
-      // Trigger async summarization (fire and forget)
       fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/summarize-memory`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'Content-Type': 'application/json' },
