@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, Loader2, Lock, Fingerprint, ShieldOff } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -45,6 +45,16 @@ const steps = [
     title: 'AI Companion Style',
     options: ['Supportive Friend', 'Neutral Companion', 'Accountability Coach'],
     type: 'single'
+  },
+  {
+    id: 'privacy_lock',
+    title: 'Protect Anchor with an app lock?',
+    options: [
+      { label: 'No lock', value: 'none', icon: ShieldOff },
+      { label: '4-digit PIN', value: 'pin', icon: Lock },
+      { label: 'Biometric (Recommended)', value: 'biometric', icon: Fingerprint }
+    ],
+    type: 'lock'
   }
 ];
 
@@ -52,11 +62,13 @@ const SetupProfile = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selections, setSelections] = useState<Record<string, any>>({});
   const [customHabit, setCustomHabit] = useState('');
+  const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const isOtherSelected = selections.habit_type === 'Other';
   const isOtherValid = !isOtherSelected || (isOtherSelected && customHabit.trim().length > 0);
+  const isPinValid = selections.privacy_lock !== 'pin' || pin.length === 4;
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
@@ -82,6 +94,8 @@ const SetupProfile = () => {
           risk_level: selections.risk_level,
           check_in_frequency: selections.check_in_frequency,
           ai_tone: selections.ai_tone,
+          privacy_lock_type: selections.privacy_lock,
+          pin_code: selections.privacy_lock === 'pin' ? pin : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -98,13 +112,13 @@ const SetupProfile = () => {
 
   const handleBack = () => {
     if (currentStep > 0) {
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep(prev => prev - 1);
     }
   };
 
   const toggleOption = (option: string) => {
     const step = steps[currentStep];
-    if (step.type === 'single') {
+    if (step.type === 'single' || step.type === 'lock') {
       setSelections({ ...selections, [step.id]: option });
     } else if (step.type === 'multi') {
       const current = selections[step.id] || [];
@@ -146,42 +160,71 @@ const SetupProfile = () => {
           <h2 className="text-3xl font-bold text-slate-900 mb-8">{step.title}</h2>
 
           <div className="space-y-3">
-            {step.options?.map((option) => {
-              const isSelected = step.type === 'single' 
-                ? selections[step.id] === option
-                : selections[step.id]?.includes(option);
-
-              return (
-                <div key={option} className="space-y-3">
+            {step.type === 'lock' ? (
+              step.options.map((opt: any) => (
+                <div key={opt.value} className="space-y-3">
                   <button
-                    onClick={() => toggleOption(option)}
+                    onClick={() => toggleOption(opt.value)}
                     className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
-                      isSelected 
+                      selections.privacy_lock === opt.value 
                         ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
                         : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
                     }`}
                   >
-                    <span className="font-medium">{option}</span>
-                    {isSelected && <Check size={20} className="text-indigo-600" />}
+                    <div className="flex items-center gap-3">
+                      <opt.icon size={20} />
+                      <span className="font-medium">{opt.label}</span>
+                    </div>
+                    {selections.privacy_lock === opt.value && <Check size={20} className="text-indigo-600" />}
                   </button>
-                  
-                  {option === 'Other' && isSelected && step.id === 'habit_type' && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      className="px-1"
-                    >
+                  {opt.value === 'pin' && selections.privacy_lock === 'pin' && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}>
                       <Input
-                        placeholder="Type your habit here"
-                        className="h-14 rounded-xl bg-slate-50 border-slate-200"
-                        value={customHabit}
-                        onChange={(e) => setCustomHabit(e.target.value)}
+                        type="password"
+                        maxLength={4}
+                        placeholder="Enter 4-digit PIN"
+                        className="h-14 rounded-xl bg-slate-50 border-slate-200 text-center text-2xl tracking-[1em]"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                       />
                     </motion.div>
                   )}
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              step.options?.map((option: any) => {
+                const isSelected = step.type === 'single' 
+                  ? selections[step.id] === option
+                  : selections[step.id]?.includes(option);
+
+                return (
+                  <div key={option} className="space-y-3">
+                    <button
+                      onClick={() => toggleOption(option)}
+                      className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
+                        isSelected 
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                          : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
+                      }`}
+                    >
+                      <span className="font-medium">{option}</span>
+                      {isSelected && <Check size={20} className="text-indigo-600" />}
+                    </button>
+                    
+                    {option === 'Other' && isSelected && step.id === 'habit_type' && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="px-1">
+                        <Input
+                          placeholder="Type your habit here"
+                          className="h-14 rounded-xl bg-slate-50 border-slate-200"
+                          value={customHabit}
+                          onChange={(e) => setCustomHabit(e.target.value)}
+                        />
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </motion.div>
       </AnimatePresence>
@@ -189,7 +232,7 @@ const SetupProfile = () => {
       <div className="mt-8">
         <Button 
           onClick={handleNext} 
-          disabled={loading || (step.type === 'single' && !selections[step.id]) || (step.id === 'habit_type' && !isOtherValid)}
+          disabled={loading || (step.type === 'single' && !selections[step.id]) || (step.id === 'habit_type' && !isOtherValid) || (step.id === 'privacy_lock' && !isPinValid)}
           className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
         >
           {loading ? <Loader2 className="animate-spin" /> : (
