@@ -33,9 +33,10 @@ const Home = () => {
   const getGreeting = () => {
     const hour = new Date().getHours();
     const name = profile?.display_name || 'Friend';
-    if (hour < 12) return `Good morning, ${name}`;
-    if (hour < 18) return `Hello, ${name}`;
-    return `Welcome back, ${name}`;
+    
+    if (hour >= 5 && hour < 12) return `Good morning, ${name}.`;
+    if (hour >= 12 && hour < 17) return `Good afternoon, ${name}.`;
+    return `Good evening, ${name}.`;
   };
 
   return (
@@ -44,7 +45,7 @@ const Home = () => {
         <div className="bg-amber-50 border-b border-amber-100 p-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-amber-800 text-xs font-medium">
             <ShieldAlert size={16} />
-            <span>Verify your email to secure your account and enable recovery.</span>
+            <span>Verify your email to secure your account and enable account recovery.</span>
           </div>
           <button onClick={() => setShowBanner(false)} className="text-amber-400">
             <X size={16} />
@@ -68,13 +69,13 @@ const Home = () => {
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-indigo-100 text-sm font-medium">Next Check-in</p>
-              <h3 className="text-xl font-bold">Afternoon Reflection</h3>
+              <h3 className="text-xl font-bold">Daily Reflection</h3>
             </div>
             <Clock className="text-indigo-200" />
           </div>
           <div className="flex items-center gap-2 text-indigo-100 text-sm mb-6">
             <div className="w-2 h-2 bg-indigo-300 rounded-full animate-pulse" />
-            Scheduled for 2:00 PM
+            Stay mindful of your intentions.
           </div>
           <Button 
             onClick={() => navigate('/check-in')}

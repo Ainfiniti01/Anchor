@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft } from 'lucide-react';
+import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft, Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
   const [tone, setTone] = useState("supportive");
+  const [privacyLock, setPrivacyLock] = useState("none");
 
   const handleLogout = () => {
     showSuccess("Logged out successfully");
@@ -80,6 +81,25 @@ const Settings = () => {
                 checked={theme === 'dark'} 
                 onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} 
               />
+            </div>
+
+            <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+                  <Lock size={20} />
+                </div>
+                <span className="font-medium text-slate-700 dark:text-slate-200">Privacy Lock</span>
+              </div>
+              <Select value={privacyLock} onValueChange={setPrivacyLock}>
+                <SelectTrigger className="w-[140px] border-none bg-transparent focus:ring-0 text-right font-medium text-indigo-600">
+                  <SelectValue placeholder="Select lock" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="pin">PIN Lock</SelectItem>
+                  <SelectItem value="biometric">Biometric</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center justify-between p-4">
