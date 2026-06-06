@@ -4,21 +4,40 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { ChevronLeft, Send, Smile, Meh, Frown, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Smile, Meh, Frown, AlertCircle, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const CheckIn = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [mood, setMood] = useState<string | null>(null);
-  const [urge, setUrge] = useState<string | null>(null);
+  const [mood, setMood] = useState<number | null>(null);
+  const [urge, setUrge] = useState<number | null>(null);
   const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleFinish = () => {
-    showSuccess("Check-in completed. Stay strong!");
-    navigate('/home');
+  const handleFinish = async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from('behavioral_logs').insert([{
+      user_id: user.id,
+      mood_score: mood,
+      urge_level: urge,
+      notes: response
+    }]);
+
+    if (error) {
+      showError(error.message);
+    } else {
+      // Trigger risk calculation
+      await supabase.rpc('calculate_user_risk', { p_user_id: user.id });
+      showSuccess("Check-in completed. Stay strong!");
+      navigate('/home');
+    }
+    setLoading(false);
   };
 
   return (
@@ -32,25 +51,19 @@ const CheckIn = () => {
 
       <AnimatePresence mode="wait">
         {step === 1 && (
-          <motion.div
-            key="step1"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
-          >
-            <h2 className="text-2xl font-bold text-slate-900">How are you feeling right now?</h2>
+          <motion.div key="step1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+            <h2 className="text-2xl font-bold text-slate-900">How are you feeling?</h2>
             <div className="grid grid-cols-3 gap-4">
               {[
-                { icon: Smile, label: 'Good', color: 'text-green-500', bg: 'bg-green-50' },
-                { icon: Meh, label: 'Okay', color: 'text-yellow-500', bg: 'bg-yellow-50' },
-                { icon: Frown, label: 'Bad', color: 'text-red-500', bg: 'bg-red-50' },
+                { icon: Smile, label: 'Good', score: 1, color: 'text-green-500' },
+                { icon: Meh, label: 'Okay', score: 0, color: 'text-yellow-500' },
+                { icon: Frown, label: 'Bad', score: -2, color: 'text-red-500' },
               ].map((item) => (
                 <button
                   key={item.label}
-                  onClick={() => setMood(item.label)}
+                  onClick={() => setMood(item.score)}
                   className={`p-6 rounded-3xl flex flex-col items-center gap-2 transition-all border-2 ${
-                    mood === item.label ? 'border-indigo-600 bg-indigo-50' : 'border-transparent bg-white'
+                    mood === item.score ? 'border-indigo-600 bg-indigo-50' : 'border-transparent bg-white'
                   }`}
                 >
                   <item.icon size={32} className={item.color} />
@@ -58,71 +71,46 @@ const CheckIn = () => {
                 </button>
               ))}
             </div>
-            <Button 
-              disabled={!mood} 
-              onClick={() => setStep(2)}
-              className="w-full h-14 rounded-2xl bg-indigo-600"
-            >
-              Next
-            </Button>
+            <Button disabled={mood === null} onClick={() => setStep(2)} className="w-full h-14 rounded-2xl bg-indigo-600">Next</Button>
           </motion.div>
         )}
 
         {step === 2 && (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
-          >
+          <motion.div key="step2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
             <h2 className="text-2xl font-bold text-slate-900">What is your urge level?</h2>
             <div className="space-y-3">
-              {['Low', 'Medium', 'High'].map((level) => (
+              {[
+                { label: 'Low', val: 0 },
+                { label: 'Medium', val: 1 },
+                { label: 'High', val: 2 }
+              ].map((level) => (
                 <button
-                  key={level}
-                  onClick={() => setUrge(level)}
+                  key={level.label}
+                  onClick={() => setUrge(level.val)}
                   className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
-                    urge === level 
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
-                      : 'border-transparent bg-white text-slate-600'
+                    urge === level.val ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-transparent bg-white text-slate-600'
                   }`}
                 >
-                  <span className="font-bold">{level}</span>
-                  {urge === level && <AlertCircle size={20} />}
+                  <span className="font-bold">{level.label}</span>
+                  {urge === level.val && <AlertCircle size={20} />}
                 </button>
               ))}
             </div>
-            <Button 
-              disabled={!urge} 
-              onClick={() => setStep(3)}
-              className="w-full h-14 rounded-2xl bg-indigo-600"
-            >
-              Next
-            </Button>
+            <Button disabled={urge === null} onClick={() => setStep(3)} className="w-full h-14 rounded-2xl bg-indigo-600">Next</Button>
           </motion.div>
         )}
 
         {step === 3 && (
-          <motion.div
-            key="step3"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
-          >
-            <h2 className="text-2xl font-bold text-slate-900">Any thoughts you want to share?</h2>
+          <motion.div key="step3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+            <h2 className="text-2xl font-bold text-slate-900">Any thoughts?</h2>
             <Textarea
               placeholder="Type your reflection here..."
               className="min-h-[200px] rounded-3xl bg-white border-none p-6 text-lg"
               value={response}
               onChange={(e) => setResponse(e.target.value)}
             />
-            <Button 
-              onClick={handleFinish}
-              className="w-full h-14 rounded-2xl bg-indigo-600 font-bold text-lg"
-            >
-              Complete Check-in
+            <Button onClick={handleFinish} disabled={loading} className="w-full h-14 rounded-2xl bg-indigo-600 font-bold text-lg">
+              {loading ? <Loader2 className="animate-spin" /> : 'Complete Check-in'}
             </Button>
           </motion.div>
         )}
