@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Fingerprint, Delete, ChevronLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 
@@ -16,11 +16,18 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   const [lockType, setLockType] = useState<'pin' | 'biometric' | 'none'>('none');
   const [storedPin, setStoredPin] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Don't show lock on auth pages
+  const publicPaths = ['/', '/login', '/register', '/forgot-password', '/onboarding'];
+  const isPublicPath = publicPaths.includes(location.pathname);
 
   useEffect(() => {
     const checkLock = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (user && !isPublicPath) {
         const { data } = await supabase
           .from('profiles')
           .select('privacy_lock_type, pin_code')
@@ -34,15 +41,21 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
           if (data.privacy_lock_type === 'biometric') {
             handleBiometric();
           }
+        } else {
+          setLockType('none');
         }
+      } else {
+        setLockType('none');
       }
       setLoading(false);
     };
     checkLock();
-  }, []);
+  }, [location.pathname]);
 
   const handleBiometric = async () => {
+    // Simulate biometric success for demo
     setTimeout(() => {
+      setIsUnlocked(true);
       onUnlock();
     }, 1000);
   };
@@ -53,6 +66,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
       setPin(newPin);
       if (newPin.length === 4) {
         if (newPin === storedPin) {
+          setIsUnlocked(true);
           onUnlock();
         } else {
           showError("Incorrect PIN");
@@ -62,7 +76,13 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
     }
   };
 
-  if (loading || lockType === 'none') return null;
+  const handleForgotPin = async () => {
+    await supabase.auth.signOut();
+    setIsUnlocked(true); // Hide lock to allow navigation
+    navigate('/login');
+  };
+
+  if (loading || lockType === 'none' || isUnlocked || isPublicPath) return null;
 
   return (
     <div className="fixed inset-0 z-[100] bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-8">
@@ -120,7 +140,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
         </div>
 
         <button 
-          onClick={() => supabase.auth.signOut()}
+          onClick={handleForgotPin}
           className="mt-12 text-sm font-medium text-indigo-600 hover:underline"
         >
           Forgot PIN? Sign out and log in again
