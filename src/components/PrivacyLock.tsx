@@ -20,7 +20,8 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const publicPaths = ['/', '/login', '/register', '/forgot-password', '/onboarding'];
+  // Added /setup-profile to public paths so users can set their PIN without being locked out
+  const publicPaths = ['/', '/login', '/register', '/forgot-password', '/onboarding', '/setup-profile'];
   const isPublicPath = publicPaths.includes(location.pathname);
 
   useEffect(() => {
@@ -33,16 +34,20 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
           .eq('id', user.id)
           .single();
         
-        if (data) {
+        if (data && data.privacy_lock_type !== 'none') {
           setLockType(data.privacy_lock_type as any);
           if (data.privacy_lock_type === 'biometric') {
             handleBiometric();
           }
         } else {
           setLockType('none');
+          setIsUnlocked(true);
+          onUnlock();
         }
       } else {
         setLockType('none');
+        setIsUnlocked(true);
+        onUnlock();
       }
       setLoading(false);
     };
@@ -68,7 +73,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
           
           if (error) throw error;
 
-          if (isValid) {
+          if (isValid === true) {
             setIsUnlocked(true);
             onUnlock();
           } else {
