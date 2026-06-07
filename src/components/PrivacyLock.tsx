@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Fingerprint, Delete } from 'lucide-react';
+import { Lock, Fingerprint, Delete, Loader2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
@@ -20,7 +20,6 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Added /setup-profile to public paths so users can set their PIN without being locked out
   const publicPaths = ['/', '/login', '/register', '/forgot-password', '/onboarding', '/setup-profile'];
   const isPublicPath = publicPaths.includes(location.pathname);
 
@@ -28,13 +27,13 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
     const checkLock = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user && !isPublicPath) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select('privacy_lock_type')
           .eq('id', user.id)
           .single();
         
-        if (data && data.privacy_lock_type !== 'none') {
+        if (!error && data && data.privacy_lock_type !== 'none') {
           setLockType(data.privacy_lock_type as any);
           if (data.privacy_lock_type === 'biometric') {
             handleBiometric();
@@ -55,9 +54,11 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
   }, [location.pathname]);
 
   const handleBiometric = async () => {
+    setVerifying(true);
     setTimeout(() => {
       setIsUnlocked(true);
       onUnlock();
+      setVerifying(false);
     }, 1000);
   };
 
@@ -69,19 +70,20 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
       if (newPin.length === 4) {
         setVerifying(true);
         try {
-          const { data: isValid, error } = await supabase.rpc('verify_user_pin', { p_pin: newPin });
+          const { data, error } = await supabase.rpc('verify_user_pin', { p_pin: newPin });
           
           if (error) throw error;
 
-          if (isValid === true) {
+          if (data === true) {
             setIsUnlocked(true);
             onUnlock();
           } else {
-            showError("Incorrect PIN");
+            showError("Incorrect PIN. Please try again.");
             setPin('');
           }
         } catch (err) {
-          showError("Verification failed");
+          console.error("PIN Verification Error:", err);
+          showError("Security service unavailable. Try again.");
           setPin('');
         } finally {
           setVerifying(false);
@@ -106,10 +108,12 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
         className="w-full max-w-xs flex flex-col items-center"
       >
         <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
-          <Lock size={32} />
+          {verifying ? <Loader2 className="animate-spin" size={32} /> : <Lock size={32} />}
         </div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Anchor Locked</h2>
-        <p className="text-slate-500 text-center mb-12">Enter your PIN to continue</p>
+        <p className="text-slate-500 text-center mb-12">
+          {verifying ? "Verifying security..." : "Enter your PIN to continue"}
+        </p>
 
         <div className="flex gap-4 mb-12">
           {[0, 1, 2, 3].map((i) => (
@@ -128,14 +132,14 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
               key={num}
               disabled={verifying}
               onClick={() => handleKeyPress(num.toString())}
-              className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-90"
             >
               {num}
             </button>
           ))}
           <div className="flex items-center justify-center">
             {lockType === 'biometric' && (
-              <button onClick={handleBiometric} className="text-indigo-600">
+              <button onClick={handleBiometric} disabled={verifying} className="text-indigo-600 hover:scale-110 transition-transform">
                 <Fingerprint size={32} />
               </button>
             )}
@@ -143,14 +147,14 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
           <button
             disabled={verifying}
             onClick={() => handleKeyPress('0')}
-            className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50"
+            className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 text-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-90"
           >
             0
           </button>
           <button
-            disabled={verifying}
+            disabled={verifying || pin.length === 0}
             onClick={() => setPin(pin.slice(0, -1))}
-            className="flex items-center justify-center text-slate-400 disabled:opacity-50"
+            className="flex items-center justify-center text-slate-400 disabled:opacity-30 hover:text-slate-600 transition-colors"
           >
             <Delete size={24} />
           </button>
