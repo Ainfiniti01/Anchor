@@ -1,19 +1,20 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ChevronLeft, Info, Loader2 } from 'lucide-react';
+import { Send, ChevronLeft, Info, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import MobileLayout from '@/components/MobileLayout';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 
 interface Message {
   id: string;
   message: string;
   role: 'user' | 'ai';
   created_at: string;
+  feedback_given?: boolean;
 }
 
 const Chat = () => {
@@ -28,7 +29,6 @@ const Chat = () => {
     fetchChatHistory();
   }, []);
 
-  // Robust auto-scroll to bottom
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -39,7 +39,6 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    // Small timeout to ensure DOM has updated with new messages
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages, isTyping]);
@@ -62,19 +61,37 @@ const Chat = () => {
     setLoading(false);
   };
 
+  const handleFeedback = async (messageId: string, isHelpful: boolean) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from('interaction_feedback').insert([{
+      user_id: user.id,
+      message_id: messageId,
+      is_helpful: isHelpful
+    }]);
+
+    if (error) {
+      showError("Failed to save feedback");
+    } else {
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, feedback_given: true } : m));
+      showSuccess(isHelpful ? "Anchor will keep this style!" : "Anchor will adjust its approach.");
+    }
+  };
+
   const saveMessage = async (role: 'user' | 'ai', text: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase.from('chat_messages').insert([
+    const { data, error } = await supabase.from('chat_messages').insert([
       {
         user_id: user.id,
         role: role,
         message: text
       }
-    ]);
+    ]).select();
     
-    if (error) console.error("Failed to save message:", error);
+    return data?.[0]?.id;
   };
 
   const handleSend = async () => {
@@ -91,18 +108,12 @@ const Chat = () => {
     };
 
     setMessages(prev => [...prev, userMsg]);
-    saveMessage('user', userText);
+    await saveMessage('user', userText);
     setIsTyping(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("User not authenticated");
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('habit_type, habit_duration, risk_level, triggers')
-        .eq('id', session.user.id)
-        .single();
 
       const response = await fetch('https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/chat-ai', {
         method: 'POST',
@@ -112,46 +123,30 @@ const Chat = () => {
         },
         body: JSON.stringify({
           message: userText,
-          profile: {
-            addiction_type: profile?.habit_type || '',
-            duration: profile?.habit_duration || '',
-            risk_level: profile?.risk_level || '',
-            triggers: profile?.triggers || []
-          },
           user_id: session.user.id
         })
       });
 
-      if (!response.ok) {
-        throw new Error("AI Service unavailable");
-      }
+      if (!response.ok) throw new Error("AI Service unavailable");
 
       const data = await response.json();
       const aiReply = data.reply;
+      const savedId = await saveMessage('ai', aiReply);
 
       const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: savedId || (Date.now() + 1).toString(),
         message: aiReply,
         role: 'ai',
         created_at: new Date().toISOString(),
       };
 
       setMessages(prev => [...prev, aiMsg]);
-      saveMessage('ai', aiReply);
     } catch (error: any) {
       showError("Unable to connect to Anchor right now.");
-      console.error("AI Chat Error:", error);
     } finally {
       setIsTyping(false);
     }
   };
-
-  const quickActions = [
-    "I feel an urge",
-    "I'm struggling",
-    "I slipped today",
-    "Check-in"
-  ];
 
   return (
     <MobileLayout>
@@ -172,42 +167,39 @@ const Chat = () => {
           <Info size={20} className="text-slate-400" />
         </header>
 
-        <div 
-          ref={scrollRef} 
-          className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
-        >
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="animate-spin text-indigo-600" />
             </div>
           ) : (
-            <>
-              {messages.length === 0 && (
-                <div className="text-center py-12 px-6">
-                  <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Info size={32} />
-                  </div>
-                  <h3 className="font-bold text-slate-900 dark:text-white mb-2">Start a conversation</h3>
-                  <p className="text-sm text-slate-500">Anchor is here to support you. Try one of the quick actions below or type a message.</p>
+            messages.map((msg) => (
+              <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                  msg.role === 'user'
+                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
+                }`}>
+                  {msg.message}
                 </div>
-              )}
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                      msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-tr-none'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
-                    }`}
-                  >
-                    {msg.message}
+                {msg.role === 'ai' && !msg.feedback_given && (
+                  <div className="flex gap-2 mt-2 ml-1">
+                    <button 
+                      onClick={() => handleFeedback(msg.id, true)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-green-500 transition-colors"
+                    >
+                      <ThumbsUp size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleFeedback(msg.id, false)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <ThumbsDown size={14} />
+                    </button>
                   </div>
-                </div>
-              ))}
-            </>
+                )}
+              </div>
+            ))
           )}
           {isTyping && (
             <div className="flex justify-start">
@@ -221,22 +213,10 @@ const Chat = () => {
               </div>
             </div>
           )}
-          {/* Spacer to ensure content isn't hidden by fixed input */}
           <div className="h-32" />
         </div>
 
-        <div className="fixed bottom-20 w-full max-w-md bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 p-4 space-y-4 z-20">
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {quickActions.map((action) => (
-              <button
-                key={action}
-                onClick={() => setInput(action)}
-                className="whitespace-nowrap px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                {action}
-              </button>
-            ))}
-          </div>
+        <div className="fixed bottom-20 w-full max-w-md bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 p-4 z-20">
           <div className="flex gap-2">
             <Input
               value={input}

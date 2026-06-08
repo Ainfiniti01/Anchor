@@ -70,6 +70,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
       if (newPin.length === 4) {
         setVerifying(true);
         try {
+          // Explicitly call the RPC with the current session
           const { data, error } = await supabase.rpc('verify_user_pin', { p_pin: newPin });
           
           if (error) throw error;
@@ -83,7 +84,7 @@ const PrivacyLock = ({ onUnlock }: PrivacyLockProps) => {
           }
         } catch (err) {
           console.error("PIN Verification Error:", err);
-          showError("Security service unavailable. Try again.");
+          showError("Security check failed. Please try again.");
           setPin('');
         } finally {
           setVerifying(false);
