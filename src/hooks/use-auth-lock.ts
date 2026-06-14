@@ -13,13 +13,17 @@ export function useAuthLock() {
     timeout: 0
   });
 
-  const publicPaths = ['/', '/login', '/register', '/onboarding', '/forgot-password'];
-  const isPublicPath = publicPaths.includes(location.pathname);
+  // Paths that should NEVER trigger a PIN lock
+  const safePaths = ['/', '/login', '/register', '/onboarding', '/forgot-password', '/setup-profile'];
+  const isSafePath = safePaths.includes(location.pathname);
 
   const fetchConfig = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // If no user, we definitely shouldn't be locked
     if (!user) {
       setIsLocked(false);
+      setConfig({ enabled: false, timeout: 0 });
       return;
     }
 
@@ -30,14 +34,14 @@ export function useAuthLock() {
       .single();
 
     if (profile) {
-      const enabled = profile.privacy_lock_type === 'pin';
+      const isPinEnabled = profile.privacy_lock_type === 'pin';
       setConfig({
-        enabled,
+        enabled: isPinEnabled,
         timeout: profile.auto_lock_timeout || 0
       });
       
-      // Only lock on cold start if enabled AND not on a public path
-      if (enabled && !isPublicPath) {
+      // Only lock if PIN is enabled AND we are NOT on a safe path
+      if (isPinEnabled && !isSafePath) {
         setIsLocked(true);
       } else {
         setIsLocked(false);
@@ -45,35 +49,37 @@ export function useAuthLock() {
     } else {
       setIsLocked(false);
     }
-  }, [isPublicPath]);
+  }, [isSafePath]);
 
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
 
   useEffect(() => {
-    if (!config.enabled || isPublicPath) return;
+    // If PIN isn't enabled or we're on a safe path, don't run the background timer
+    if (!config.enabled || isSafePath) {
+      if (isSafePath) setIsLocked(false);
+      return;
+    }
 
-    const handleStateChange = (nextAppState: string) => {
-      if (nextAppState === 'visible') {
+    const handleStateChange = () => {
+      if (document.visibilityState === 'visible') {
         const now = Date.now();
         const elapsed = (now - lastActive) / 1000;
         
+        // Only lock if the timeout has passed
         if (elapsed > config.timeout) {
           setIsLocked(true);
         }
       } else {
+        // App went to background, save the timestamp
         setLastActive(Date.now());
       }
     };
 
-    const onVisibilityChange = () => {
-      handleStateChange(document.visibilityState === 'visible' ? 'visible' : 'hidden');
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [config, lastActive, isPublicPath]);
+    document.addEventListener('visibilitychange', handleStateChange);
+    return () => document.removeEventListener('visibilitychange', handleStateChange);
+  }, [config, lastActive, isSafePath]);
 
   const unlock = () => setIsLocked(false);
 
