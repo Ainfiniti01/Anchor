@@ -20,27 +20,30 @@ export function useAuthLock() {
   const fetchConfig = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     
-    // If no user, we definitely shouldn't be locked
-    if (!user) {
+    if (!user || isSafePath) {
       setIsLocked(false);
-      setConfig({ enabled: false, timeout: 0 });
+      if (!user) setConfig({ enabled: false, timeout: 0 });
       return;
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('privacy_lock_type, auto_lock_timeout')
-      .eq('id', user.id)
-      .single();
+    // Fetch profile and check if a PIN actually exists in security settings
+    const [profileRes, securityRes] = await Promise.all([
+      supabase.from('profiles').select('privacy_lock_type, auto_lock_timeout').eq('id', user.id).single(),
+      supabase.from('user_security_settings').select('id').eq('user_id', user.id).single()
+    ]);
+
+    const profile = profileRes.data;
+    const hasPinSet = !!securityRes.data;
 
     if (profile) {
-      const isPinEnabled = profile.privacy_lock_type === 'pin';
+      const isPinEnabled = profile.privacy_lock_type === 'pin' && hasPinSet;
+      
       setConfig({
         enabled: isPinEnabled,
         timeout: profile.auto_lock_timeout || 0
       });
       
-      // Only lock if PIN is enabled AND we are NOT on a safe path
+      // Only lock if PIN is enabled, a PIN actually exists, AND we are NOT on a safe path
       if (isPinEnabled && !isSafePath) {
         setIsLocked(true);
       } else {
@@ -56,7 +59,6 @@ export function useAuthLock() {
   }, [fetchConfig]);
 
   useEffect(() => {
-    // If PIN isn't enabled or we're on a safe path, don't run the background timer
     if (!config.enabled || isSafePath) {
       if (isSafePath) setIsLocked(false);
       return;
@@ -66,13 +68,10 @@ export function useAuthLock() {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
         const elapsed = (now - lastActive) / 1000;
-        
-        // Only lock if the timeout has passed
         if (elapsed > config.timeout) {
           setIsLocked(true);
         }
       } else {
-        // App went to background, save the timestamp
         setLastActive(Date.now());
       }
     };

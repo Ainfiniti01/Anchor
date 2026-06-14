@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -25,10 +25,15 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { isLocked, unlock } = useAuthLock();
+  const location = useLocation();
+  
+  // Double safety: Never show PIN lock on these routes regardless of state
+  const safePaths = ['/', '/login', '/register', '/onboarding', '/forgot-password', '/setup-profile'];
+  const shouldShowLock = isLocked && !safePaths.includes(location.pathname);
 
   return (
     <>
-      {isLocked && <PinLock onSuccess={unlock} />}
+      {shouldShowLock && <PinLock onSuccess={unlock} />}
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
