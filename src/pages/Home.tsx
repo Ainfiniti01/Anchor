@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, Calendar, ShieldAlert, X, Loader2 } from 'lucide-react';
+import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, ShieldAlert, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import MobileLayout from '@/components/MobileLayout';
@@ -20,12 +20,13 @@ const Home = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setIsVerified(!!user.email_confirmed_at);
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
-        setProfile(data);
+        
+        if (!error) setProfile(data);
       }
       setLoading(false);
     };
