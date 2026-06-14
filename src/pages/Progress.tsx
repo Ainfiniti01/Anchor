@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card } from '@/components/ui/card';
-import { Flame, Trophy, Calendar, Zap, ChevronLeft, Loader2, Activity, ShieldCheck } from 'lucide-react';
+import { Flame, Trophy, Activity, Zap, ChevronLeft, Loader2, ShieldCheck, Target } from 'lucide-react';
 import MobileLayout from '@/components/MobileLayout';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,7 +51,7 @@ const Progress = () => {
   }
 
   const chartData = data?.weekly_urge_pattern?.data.map((val: number, i: number) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return { name: days[i], urges: val };
   }) || [];
 
@@ -93,7 +93,7 @@ const Progress = () => {
 
         <Card className="p-6 rounded-3xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-slate-900 dark:text-white">Urge History</h3>
+            <h3 className="font-bold text-slate-900 dark:text-white">Weekly Urge Chart</h3>
             <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
               <Activity size={12} />
               <span>{data?.weekly_urge_pattern?.trend} Trend</span>
@@ -110,6 +110,7 @@ const Progress = () => {
                   tick={{fontSize: 12, fill: '#94a3b8'}} 
                 />
                 <Tooltip 
+                  cursor={{fill: 'transparent'}}
                   contentStyle={{ 
                     borderRadius: '12px', 
                     border: 'none', 
@@ -123,24 +124,21 @@ const Progress = () => {
           </div>
         </Card>
 
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Behavior Snapshot</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Calm Days</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{data?.emotional_snapshot?.calm_days || 0}</p>
-            </Card>
-            <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Stress Level</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-white capitalize">{data?.emotional_snapshot?.stress_level || 'Unknown'}</p>
-            </Card>
-          </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Urges</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{data?.additional_metrics?.total_urges_this_week || 0}</p>
+          </Card>
+          <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Avg/Day</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{data?.additional_metrics?.average_urges_per_day || 0}</p>
+          </Card>
         </div>
 
         <Card className="p-6 rounded-3xl border-none bg-slate-900 dark:bg-slate-800 text-white space-y-4">
           <div className="flex items-center gap-2 text-emerald-400">
             <Zap size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider">Intelligence Insights</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Insight Engine</span>
           </div>
           <ul className="space-y-2">
             {data?.insights?.map((insight: string, i: number) => (
@@ -149,10 +147,19 @@ const Progress = () => {
                 {insight}
               </li>
             ))}
-            {(!data?.insights || data.insights.length === 0) && (
-              <li className="text-slate-400 text-sm italic">Not enough data yet to detect clear patterns.</li>
-            )}
           </ul>
+        </Card>
+
+        <Card className="p-6 rounded-3xl border-none bg-indigo-50 dark:bg-indigo-900/20 space-y-3">
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+            <Target size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider">Reflection</span>
+          </div>
+          <p className="text-slate-700 dark:text-slate-300 font-medium">
+            {data?.weekly_urge_pattern?.most_active_day 
+              ? `Urges peaked on ${data.weekly_urge_pattern.most_active_day}. What felt most challenging that day?`
+              : "What is one small win you noticed in your behavior this week?"}
+          </p>
         </Card>
       </div>
     </MobileLayout>
