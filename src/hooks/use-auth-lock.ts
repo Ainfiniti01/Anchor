@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 export function useAuthLock() {
+  const location = useLocation();
   const [isLocked, setIsLocked] = useState(false);
   const [lastActive, setLastActive] = useState<number>(Date.now());
   const [config, setConfig] = useState<{ enabled: boolean; timeout: number }>({
@@ -11,9 +13,15 @@ export function useAuthLock() {
     timeout: 0
   });
 
+  const publicPaths = ['/', '/login', '/register', '/onboarding', '/forgot-password'];
+  const isPublicPath = publicPaths.includes(location.pathname);
+
   const fetchConfig = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setIsLocked(false);
+      return;
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -27,17 +35,24 @@ export function useAuthLock() {
         enabled,
         timeout: profile.auto_lock_timeout || 0
       });
-      // Initial lock on cold start if enabled
-      if (enabled) setIsLocked(true);
+      
+      // Only lock on cold start if enabled AND not on a public path
+      if (enabled && !isPublicPath) {
+        setIsLocked(true);
+      } else {
+        setIsLocked(false);
+      }
+    } else {
+      setIsLocked(false);
     }
-  }, []);
+  }, [isPublicPath]);
 
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
 
   useEffect(() => {
-    if (!config.enabled) return;
+    if (!config.enabled || isPublicPath) return;
 
     const handleStateChange = (nextAppState: string) => {
       if (nextAppState === 'visible') {
@@ -52,14 +67,13 @@ export function useAuthLock() {
       }
     };
 
-    // Simple web-based visibility change listener
     const onVisibilityChange = () => {
       handleStateChange(document.visibilityState === 'visible' ? 'visible' : 'hidden');
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [config, lastActive]);
+  }, [config, lastActive, isPublicPath]);
 
   const unlock = () => setIsLocked(false);
 
