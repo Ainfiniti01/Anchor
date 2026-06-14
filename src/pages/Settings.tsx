@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, LogOut, Moon, Sun, ChevronLeft, Lock, Clock, Shield, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Bell, LogOut, Moon, Sun, ChevronLeft, Lock, Clock, Shield, KeyRound, ChevronRight } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,6 @@ const Settings = () => {
     navigate('/login');
   };
 
-<dyad-write path="src/pages/Settings.tsx" description="Continuing the Settings page implementation with PIN setup and auto-lock configuration.">
   const handleSetPin = async () => {
     if (pin !== confirmPin) {
       showError("PINs do not match");
