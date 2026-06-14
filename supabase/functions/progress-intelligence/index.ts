@@ -24,52 +24,72 @@ serve(async (req) => {
     if (authError || !user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
 
     // 1. Fetch Data
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const now = new Date()
+    const sevenDaysAgo = new Date(now)
+    sevenDaysAgo.setDate(now.getDate() - 7)
 
-    const [urgeRes, logRes, profileRes] = await Promise.all([
+    const [urgeRes, relapseRes, logRes, profileRes] = await Promise.all([
       supabase.from('urge_logs').select('*').eq('user_id', user.id).gte('created_at', sevenDaysAgo.toISOString()),
+      supabase.from('relapse_logs').select('*').eq('user_id', user.id).gte('created_at', sevenDaysAgo.toISOString()),
       supabase.from('behavioral_logs').select('*').eq('user_id', user.id).gte('created_at', sevenDaysAgo.toISOString()),
       supabase.from('profiles').select('*').eq('id', user.id).single()
     ])
 
     const urges = urgeRes.data || []
+    const relapses = relapseRes.data || []
     const logs = logRes.data || []
     const profile = profileRes.data || {}
 
-    // 2. Calculate Truth-Based Metrics
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    // 2. Calculate Truth-Based Metrics (Mon-Sun)
     const dailyUrges = Array(7).fill(0)
+    const relapseIndices = []
     
     urges.forEach(u => {
-      const dayIndex = (new Date(u.created_at).getDay() + 6) % 7; // Adjust to Mon-Sun
-      dailyUrges[dayIndex]++
+      const day = (new Date(u.created_at).getDay() + 6) % 7; // Mon=0, Sun=6
+      dailyUrges[day]++
     })
 
-    const totalUrges = urges.length;
-    const resistedUrges = urges.length; // In this context, every log is a resisted urge unless a relapse is logged
-    const mostActiveDay = days[dailyUrges.indexOf(Math.max(...dailyUrges))];
+    relapses.forEach(r => {
+      const day = (new Date(r.created_at).getDay() + 6) % 7;
+      relapseIndices.push(day)
+    })
+
+    const totalUrges = urges.length
+    const resistedUrges = urges.filter(u => u.resisted !== false).length
+    const avgUrges = (totalUrges / 7).toFixed(1)
+
+    // 3. Achievement Logic (Meaningful & Rare)
+    const achievements = []
+    if (profile.total_resisted_urges >= 1) achievements.push("First Resistance")
+    if (profile.current_streak >= 7) achievements.push("7-Day Shield")
+    if (profile.current_streak >= 30) achievements.push("Monthly Anchor")
+    if (profile.best_streak_days >= 14) achievements.push("Consistency King")
 
     const systemPrompt = `
 You are Anchor Progress Intelligence Engine.
-Your role is to analyze behavioral data and produce structured insights.
-You do NOT motivate, praise, or assume emotions.
-You ONLY analyze patterns and present grounded summaries.
+Analyze behavioral data and produce structured insights.
+Return JSON only.
 
-TASK:
-Generate a "Behavior Snapshot" JSON.
-- insights: factual, short, non-emotional.
+RULES:
+- insights: factual, short, non-emotional. Only if confidence >= 60.
+- reflection: ONE rotating item (question or insight).
 - confidence: 0-100.
 
-Return JSON only.
+Return JSON:
+{
+  "insights": ["string"],
+  "reflection": "string",
+  "confidence": number
+}
 `;
 
     const userPrompt = `
-INPUT DATA:
+DATA:
 - Daily Urges (Mon-Sun): ${JSON.stringify(dailyUrges)}
-- Total Urges: ${totalUrges}
-- Current Streak: ${profile.current_streak || 0}
-- Best Streak: ${profile.best_streak || 0}
+- Relapse Days: ${JSON.stringify(relapseIndices)}
+- Total Resisted: ${profile.total_resisted_urges}
+- Current Streak: ${profile.current_streak}
+- Best Streak: ${profile.best_streak_days}
 `;
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -92,25 +112,28 @@ INPUT DATA:
     const finalResult = {
       weekly_urge_pattern: {
         data: dailyUrges,
-        trend: totalUrges > 5 ? "increasing" : "stable",
-        most_active_day: mostActiveDay,
-        confidence: 85
+        trend: totalUrges > 5 ? (dailyUrges[6] > dailyUrges[0] ? "increasing" : "decreasing") : "stable",
+        confidence: aiResult.confidence
       },
       resistance_metrics: {
-        resisted_urges_total: resistedUrges,
-        resistance_ratio: 100
+        resisted_urges_total: profile.total_resisted_urges || resistedUrges,
+        resistance_ratio: totalUrges > 0 ? Math.round((resistedUrges / totalUrges) * 100) : 100
+      },
+      relapse_analysis: {
+        relapse_days_indices: relapseIndices,
+        total_relapses: profile.total_relapses || 0
       },
       streaks: {
         current_streak: profile.current_streak || 0,
-        best_streak: profile.best_streak || 0,
+        best_streak: profile.best_streak_days || 0,
         recovery_streak: profile.current_streak || 0
       },
       additional_metrics: {
-        total_urges_this_week: totalUrges,
-        average_urges_per_day: (totalUrges / 7).toFixed(1),
-        most_active_urge_day: mostActiveDay
+        average_urges_per_day: avgUrges
       },
-      insights: aiResult.insights || ["Not enough data yet to detect clear patterns"],
+      insights: aiResult.confidence >= 60 ? aiResult.insights : ["Not enough data yet to detect clear patterns"],
+      reflection: aiResult.reflection,
+      achievements: achievements,
       emotional_snapshot: {
         calm_days: logs.filter(l => l.mood_score > 0).length,
         high_urge_days: dailyUrges.filter(u => u > 2).length,

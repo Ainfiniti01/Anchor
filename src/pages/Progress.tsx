@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card } from '@/components/ui/card';
-import { Flame, Trophy, Activity, Zap, ChevronLeft, Loader2, ShieldCheck, Target } from 'lucide-react';
+import { Flame, Trophy, Activity, Zap, ChevronLeft, Loader2, ShieldCheck, Target, Award, Info } from 'lucide-react';
 import MobileLayout from '@/components/MobileLayout';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +52,11 @@ const Progress = () => {
 
   const chartData = data?.weekly_urge_pattern?.data.map((val: number, i: number) => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return { name: days[i], urges: val };
+    return { 
+      name: days[i], 
+      urges: val,
+      isRelapse: data?.relapse_analysis?.relapse_days_indices?.includes(i)
+    };
   }) || [];
 
   return (
@@ -66,7 +70,7 @@ const Progress = () => {
         </div>
       </header>
 
-      <div className="px-6 space-y-6">
+      <div className="px-6 space-y-6 pb-12">
         <div className="grid grid-cols-3 gap-3">
           <Card className="p-3 rounded-2xl border-none bg-orange-50 dark:bg-orange-900/20 flex flex-col gap-1">
             <Flame className="text-orange-500" size={20} />
@@ -118,19 +122,33 @@ const Progress = () => {
                     backgroundColor: 'white'
                   }}
                 />
-                <Bar dataKey="urges" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="urges" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.isRelapse ? '#ef4444' : '#10b981'} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div className="flex justify-center gap-4 text-[10px] font-bold uppercase text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Resisted Urges</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <span>Relapse Event</span>
+            </div>
           </div>
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
           <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Urges</p>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">{data?.additional_metrics?.total_urges_this_week || 0}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Resisted</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{data?.resistance_metrics?.resisted_urges_total || 0}</p>
           </Card>
           <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Avg/Day</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Avg Urges/Day</p>
             <p className="text-xl font-bold text-slate-900 dark:text-white">{data?.additional_metrics?.average_urges_per_day || 0}</p>
           </Card>
         </div>
@@ -150,15 +168,27 @@ const Progress = () => {
           </ul>
         </Card>
 
+        {data?.achievements?.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Achievements</h3>
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {data.achievements.map((ach: any, i: number) => (
+                <Card key={i} className="p-4 rounded-2xl border-none bg-amber-50 dark:bg-amber-900/20 flex flex-col items-center text-center gap-2 min-w-[120px]">
+                  <Award className="text-amber-500" size={24} />
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase leading-tight">{ach}</span>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Card className="p-6 rounded-3xl border-none bg-indigo-50 dark:bg-indigo-900/20 space-y-3">
           <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
             <Target size={18} />
             <span className="text-xs font-bold uppercase tracking-wider">Reflection</span>
           </div>
           <p className="text-slate-700 dark:text-slate-300 font-medium">
-            {data?.weekly_urge_pattern?.most_active_day 
-              ? `Urges peaked on ${data.weekly_urge_pattern.most_active_day}. What felt most challenging that day?`
-              : "What is one small win you noticed in your behavior this week?"}
+            {data?.reflection || "What is one small win you noticed in your behavior this week?"}
           </p>
         </Card>
       </div>

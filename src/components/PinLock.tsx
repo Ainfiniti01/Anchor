@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lock, Delete, Loader2, ShieldAlert } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 
@@ -21,6 +20,14 @@ const PinLock = ({ onSuccess }: PinLockProps) => {
       return () => clearTimeout(timer);
     }
   }, [cooldown]);
+
+  // Prevent navigation bypass by locking focus and preventing scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const handleNumber = (num: string) => {
     if (pin.length < 4 && cooldown === 0) {
@@ -44,7 +51,6 @@ const PinLock = ({ onSuccess }: PinLockProps) => {
       } else {
         setPin('');
         showError("Incorrect PIN");
-        // Check for lockout
         const { data: security } = await supabase
           .from('user_security_settings')
           .select('lockout_until')
@@ -62,7 +68,7 @@ const PinLock = ({ onSuccess }: PinLockProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-indigo-600 z-[100] flex flex-col items-center justify-center p-6 text-white">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 backdrop-blur-2xl bg-indigo-600/90 text-white">
       <div className="mb-12 text-center">
         <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-md">
           <Lock size={40} />
