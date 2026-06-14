@@ -36,18 +36,23 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const message = body.message;
+    const message = body.message || "";
+    const lowerMessage = message.toLowerCase().trim();
 
     if (!message) {
       return new Response(JSON.stringify({ error: 'Message is required' }), { status: 400, headers: corsHeaders });
     }
 
-    // 1. Fetch Context (Profile, Summary, Memories)
+    // 1. Detect Low-Information Input
+    const isGreeting = ["hi", "hello", "hey", "yo", "sup", "morning", "evening"].includes(lowerMessage);
+    const isShort = lowerMessage.length < 10;
+
+    // 2. Fetch Context
     const [profileRes, summaryRes, memoriesRes, historyRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
-      supabase.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(15),
-      supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+      supabase.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(10),
+      supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(8)
     ]);
 
     const profile = profileRes.data || {};
@@ -55,46 +60,56 @@ serve(async (req) => {
     const memories = memoriesRes.data || [];
     const history = (historyRes.data || []).reverse();
 
-    // 2. Build the System Prompt
+    // 3. Build Dynamic Context Blocks
+    const memoryBlock = (memories.length > 0 && !isGreeting) 
+      ? `IDENTITY ANCHORS & STORED MEMORIES:\n${memories.map(m => `- [${m.memory_type}] ${m.content}`).join('\n')}`
+      : "";
+
+    const summaryBlock = (summary.emotional_profile && !isGreeting)
+      ? `BEHAVIORAL SUMMARY:\n${summary.emotional_profile}`
+      : "New user or low context - focus on building trust naturally.";
+
+    const riskBlock = (profile.risk_level && !isGreeting)
+      ? `CURRENT RISK: ${profile.risk_level} (Score: ${profile.risk_score})`
+      : "";
+
+    // 4. Build the System Prompt
     const systemPrompt = `
-You are Anchor, a supportive accountability companion. Your goal is to help the user overcome their habit: ${profile.habit_type || 'their addiction'}.
+You are Anchor, a supportive accountability companion. 
 
-USER CONTEXT:
-- Habit: ${profile.habit_type || 'Not specified'}
-- Duration: ${profile.habit_duration || 'Not specified'}
-- Triggers: ${profile.triggers?.join(', ') || 'Not specified'}
-- Tone Preference: ${profile.ai_tone || 'supportive'}
+CONVERSATION STATE:
+If the user message is a greeting ("hi", "hello") or low-information input:
+- DO NOT reference addiction, habits, or past history.
+- DO NOT use stored memories or identity anchors.
+- DO NOT mention risk levels or past behavior.
+- Respond naturally and warmly. Optionally ask a gentle, open question about their day.
 
-IDENTITY ANCHORS & STORED MEMORIES:
-${memories.map(m => `- [${m.memory_type}] ${m.content} (Importance: ${m.importance_score})`).join('\n')}
+CRITICAL RULE: NO ASSUMPTION MODE
+If the user has not explicitly mentioned a topic in THIS specific conversation:
+- DO NOT assume their addiction type, duration, or triggers.
+- DO NOT assume their current emotional state.
+- If unsure, respond generally and offer support or ask a neutral question.
 
-BEHAVIORAL SUMMARY:
-${summary.emotional_profile || 'New user - focus on building trust and understanding their goals.'}
+USER PREFERENCES:
+- Tone: ${profile.ai_tone || 'supportive'}
+${riskBlock}
+
+${memoryBlock}
+
+${summaryBlock}
 
 CONVERSATION STRATEGY:
-Do not ask a question in every reply. Avoid being repetitive.
-Choose ONE mode for your response based on the situation:
-- Support: Simple validation and presence. "I hear you. This is tough, but you're not alone."
-- Reflection: "How does this choice fit with the person you're trying to become?"
-- Curiosity: "What usually happens 10 minutes before an urge starts?"
-- Distraction: "Tell me more about those projects you're building. What part are you working on now?"
-- Identity Reinforcement: Use their specific goals (e.g., "You mentioned wanting to be a software engineer...") to ground them.
-- Future Self: "Imagine waking up tomorrow proud of tonight's decision. What did that version of you do?"
-- Victory: "What's one thing you've done recently that you're proud of?"
-- Pattern Detection: "I notice urges often show up when you're stressed. Have you noticed that too?"
-
-MEMORY ACCURACY:
-- Only reference information explicitly stored in memory.
-- Never invent personal history or infer facts.
-- If the user mentions a new goal, dream, or value, acknowledge it.
+- Do not ask a question in every reply.
+- Rotate modes: Support, Reflection, Curiosity, Distraction, Identity Reinforcement, Future Self, Victory, Pattern Detection.
+- If the user is experiencing an urge: prioritize grounding, distraction, and goal reminders.
+- Only reference information explicitly stored in memory when relevant to the user's current input.
 
 OUTPUT FORMAT:
-You must return a JSON object with two fields:
-1. "reply": Your conversational response.
-2. "new_memories": An array of objects if the user shared a new goal, dream, or identity anchor. Each object should have "content", "memory_type" (e.g., 'goal', 'value', 'hobby'), and "importance_score" (1-5). If no new memory, return an empty array.
+Return JSON: {"reply": "string", "new_memories": []}
+"new_memories" should only contain NEW goals, dreams, or identity anchors shared in this message.
 `;
 
-    // 3. Call Groq API
+    // 5. Call Groq API
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { 
@@ -119,7 +134,7 @@ You must return a JSON object with two fields:
     const aiReply = result.reply;
     const newMemories = result.new_memories || [];
 
-    // 4. Save new memories if detected
+    // 6. Save new memories if detected
     if (newMemories.length > 0) {
       const memoriesToInsert = newMemories.map((m: any) => ({
         user_id: user.id,
@@ -130,7 +145,7 @@ You must return a JSON object with two fields:
       await supabase.from('user_memories').insert(memoriesToInsert);
     }
 
-    // 5. Log the interaction
+    // 7. Log the interaction
     await supabase.from("response_effectiveness_log").insert({
       user_id: user.id,
       response_type: profile.ai_tone,
