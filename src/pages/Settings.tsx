@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Shield, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft, Lock, Fingerprint, ShieldOff, Clock } from 'lucide-react';
+import { Bell, User, LogOut, RefreshCw, ChevronRight, Moon, Sun, ChevronLeft, Shield } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -20,13 +20,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -48,23 +41,6 @@ const Settings = () => {
     };
     fetchProfile();
   }, []);
-
-  const updatePrivacy = async (field: string, value: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ [field]: value })
-      .eq('id', user.id);
-
-    if (error) {
-      showError(error.message);
-    } else {
-      setProfile({ ...profile, [field]: value });
-      showSuccess("Settings updated");
-    }
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -116,71 +92,6 @@ const Settings = () => {
 
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
-            Privacy & Security
-          </h3>
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
-                  <Lock size={20} />
-                </div>
-                <span className="font-medium text-slate-700 dark:text-slate-200">App Lock</span>
-              </div>
-              <Select 
-                value={profile?.privacy_lock_type || 'none'} 
-                onValueChange={(val) => updatePrivacy('privacy_lock_type', val)}
-              >
-                <SelectTrigger className="w-[140px] border-none bg-transparent focus:ring-0 text-right font-medium text-indigo-600">
-                  <SelectValue placeholder="Select lock" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="pin">PIN Lock</SelectItem>
-                  <SelectItem value="biometric">Biometric</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
-                  <Clock size={20} />
-                </div>
-                <span className="font-medium text-slate-700 dark:text-slate-200">Auto-lock</span>
-              </div>
-              <Select 
-                value={profile?.auto_lock_timeout?.toString() || '0'} 
-                onValueChange={(val) => updatePrivacy('auto_lock_timeout', parseInt(val))}
-              >
-                <SelectTrigger className="w-[140px] border-none bg-transparent focus:ring-0 text-right font-medium text-indigo-600">
-                  <SelectValue placeholder="Select time" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="0">Immediately</SelectItem>
-                  <SelectItem value="1">1 minute</SelectItem>
-                  <SelectItem value="5">5 minutes</SelectItem>
-                  <SelectItem value="-1">Never</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <button 
-              onClick={() => navigate('/setup-profile')}
-              className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
-                  <Shield size={20} />
-                </div>
-                <span className="font-medium text-slate-700 dark:text-slate-200">Change PIN / Setup</span>
-              </div>
-              <ChevronRight size={18} className="text-slate-300" />
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
             Account
           </h3>
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -193,6 +104,19 @@ const Settings = () => {
                   <User size={20} />
                 </div>
                 <span className="font-medium text-slate-700 dark:text-slate-200">Profile Details</span>
+              </div>
+              <ChevronRight size={18} className="text-slate-300" />
+            </button>
+
+            <button 
+              onClick={() => navigate('/setup-profile')}
+              className="w-full flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+                  <Shield size={20} />
+                </div>
+                <span className="font-medium text-slate-700 dark:text-slate-200">Update Goals & Habit</span>
               </div>
               <ChevronRight size={18} className="text-slate-300" />
             </button>

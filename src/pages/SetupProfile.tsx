@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, ChevronRight, ChevronLeft, Loader2, Lock, Fingerprint, ShieldOff } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, Loader2, Target, Sparkles } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,32 +29,17 @@ const steps = [
     type: 'multi'
   },
   {
-    id: 'risk_level',
-    title: 'Self-perceived risk level',
-    options: ['Low', 'Medium', 'High'],
-    type: 'single'
-  },
-  {
-    id: 'check_in_frequency',
-    title: 'Notification frequency',
-    options: ['1 daily', '2 daily', '3 daily'],
-    type: 'single'
+    id: 'goals',
+    title: 'What are your big dreams?',
+    description: 'Anchor uses these to remind you why you started. (e.g., Become a software engineer, Build a startup)',
+    type: 'input',
+    placeholder: 'Enter your main goal...'
   },
   {
     id: 'ai_tone',
     title: 'AI Companion Style',
     options: ['Supportive Friend', 'Neutral Companion', 'Accountability Coach'],
     type: 'single'
-  },
-  {
-    id: 'privacy_lock',
-    title: 'Protect Anchor with an app lock?',
-    options: [
-      { label: 'No lock', value: 'none', icon: ShieldOff },
-      { label: '4-digit PIN', value: 'pin', icon: Lock },
-      { label: 'Biometric (Recommended)', value: 'biometric', icon: Fingerprint }
-    ],
-    type: 'lock'
   }
 ];
 
@@ -62,7 +47,7 @@ const SetupProfile = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selections, setSelections] = useState<Record<string, any>>({});
   const [customHabit, setCustomHabit] = useState('');
-  const [pin, setPin] = useState('');
+  const [goalInput, setGoalInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
@@ -81,7 +66,7 @@ const SetupProfile = () => {
 
   const isOtherSelected = selections.habit_type === 'Other';
   const isOtherValid = !isOtherSelected || (isOtherSelected && customHabit.trim().length > 0);
-  const isPinValid = selections.privacy_lock !== 'pin' || pin.length === 4;
+  const isGoalValid = currentStep !== steps.findIndex(s => s.id === 'goals') || goalInput.trim().length > 0;
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
@@ -100,17 +85,14 @@ const SetupProfile = () => {
 
       const finalHabit = selections.habit_type === 'Other' ? customHabit : selections.habit_type;
 
-      // 1. Update profile data
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           habit_type: finalHabit,
           habit_duration: selections.habit_duration,
           triggers: selections.triggers,
-          risk_level: selections.risk_level,
-          check_in_frequency: selections.check_in_frequency,
           ai_tone: selections.ai_tone,
-          privacy_lock_type: selections.privacy_lock,
+          display_name: user.user_metadata?.display_name || 'User',
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -121,14 +103,14 @@ const SetupProfile = () => {
         return;
       }
 
-      // 2. Set PIN securely if selected
-      if (selections.privacy_lock === 'pin' && pin) {
-        const { error: pinError } = await supabase.rpc('set_user_pin', { p_pin: pin });
-        if (pinError) {
-          showError("Failed to set PIN securely");
-          setLoading(false);
-          return;
-        }
+      // Save goal as a memory for the AI
+      if (goalInput) {
+        await supabase.from('user_memories').insert({
+          user_id: user.id,
+          content: `Goal: ${goalInput}`,
+          importance_score: 5,
+          memory_type: 'goal'
+        });
       }
 
       showSuccess("Profile setup complete!");
@@ -144,7 +126,7 @@ const SetupProfile = () => {
 
   const toggleOption = (option: string) => {
     const step = steps[currentStep];
-    if (step.type === 'single' || step.type === 'lock') {
+    if (step.type === 'single') {
       setSelections({ ...selections, [step.id]: option });
     } else if (step.type === 'multi') {
       const current = selections[step.id] || [];
@@ -191,40 +173,20 @@ const SetupProfile = () => {
           exit={{ x: -20, opacity: 0 }}
           className="flex-1 flex flex-col"
         >
-          <h2 className="text-3xl font-bold text-slate-900 mb-8">{step.title}</h2>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">{step.title}</h2>
+          {step.description && <p className="text-slate-500 mb-8">{step.description}</p>}
 
-          <div className="space-y-3">
-            {step.type === 'lock' ? (
-              step.options.map((opt: any) => (
-                <div key={opt.value} className="space-y-3">
-                  <button
-                    onClick={() => toggleOption(opt.value)}
-                    className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
-                      selections.privacy_lock === opt.value 
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
-                        : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <opt.icon size={20} />
-                      <span className="font-medium">{opt.label}</span>
-                    </div>
-                    {selections.privacy_lock === opt.value && <Check size={20} className="text-indigo-600" />}
-                  </button>
-                  {opt.value === 'pin' && selections.privacy_lock === 'pin' && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}>
-                      <Input
-                        type="password"
-                        maxLength={4}
-                        placeholder="Enter 4-digit PIN"
-                        className="h-14 rounded-xl bg-slate-50 border-slate-200 text-center text-2xl tracking-[1em]"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                      />
-                    </motion.div>
-                  )}
-                </div>
-              ))
+          <div className="space-y-3 mt-4">
+            {step.type === 'input' ? (
+              <div className="relative">
+                <Target className="absolute left-4 top-5 text-indigo-600" size={20} />
+                <Input
+                  placeholder={step.placeholder}
+                  className="h-16 pl-12 rounded-2xl bg-slate-50 border-slate-100 focus:border-indigo-600 text-lg"
+                  value={goalInput}
+                  onChange={(e) => setGoalInput(e.target.value)}
+                />
+              </div>
             ) : (
               step.options?.map((option: any) => {
                 const isSelected = step.type === 'single' 
@@ -266,7 +228,7 @@ const SetupProfile = () => {
       <div className="mt-8">
         <Button 
           onClick={handleNext} 
-          disabled={loading || (step.type === 'single' && !selections[step.id]) || (step.id === 'habit_type' && !isOtherValid) || (step.id === 'privacy_lock' && !isPinValid)}
+          disabled={loading || (step.type === 'single' && !selections[step.id]) || (step.id === 'habit_type' && !isOtherValid) || (step.id === 'goals' && !isGoalValid)}
           className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
         >
           {loading ? <Loader2 className="animate-spin" /> : (

@@ -42,47 +42,52 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Message is required' }), { status: 400, headers: corsHeaders });
     }
 
-    // Fetch context
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-    const { data: summary } = await supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single();
-    const { data: memories } = await supabase.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(5);
+    // 1. Fetch Context (Profile, Summary, Memories)
+    const [profileRes, summaryRes, memoriesRes, historyRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
+      supabase.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(10),
+      supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+    ]);
 
-    const safeProfile = profile || {
-      ai_tone: "supportive",
-      risk_level: "low",
-      risk_score: 0
-    };
+    const profile = profileRes.data || {};
+    const summary = summaryRes.data || {};
+    const memories = memoriesRes.data || [];
+    const history = (historyRes.data || []).reverse();
 
-    const prompt = `
-You are Anchor, a supportive accountability companion.
+    // 2. Build the System Prompt
+    const systemPrompt = `
+You are Anchor, a supportive accountability companion. Your goal is to help the user overcome their habit: ${profile.habit_type || 'their addiction'}.
 
-STYLE: ${safeProfile.ai_tone || 'supportive'}
-RISK: ${safeProfile.risk_level || 'low'} (${safeProfile.risk_score || 0}/10)
+USER CONTEXT:
+- Habit: ${profile.habit_type || 'Not specified'}
+- Duration: ${profile.habit_duration || 'Not specified'}
+- Triggers: ${profile.triggers?.join(', ') || 'Not specified'}
+- Tone Preference: ${profile.ai_tone || 'supportive'}
 
-SUMMARY: ${summary?.emotional_profile ?? "New user - no history yet."}
+IDENTITY ANCHORS & GOALS:
+${memories.map(m => `- ${m.content}`).join('\n')}
 
-IDENTITY ANCHORS:
-${memories && memories.length > 0 ? memories.map(m => `- [Priority ${m.importance_score}] ${m.content}`).join('\n') : "No identity anchors set yet."}
+BEHAVIORAL SUMMARY:
+${summary.emotional_profile || 'New user - focus on building trust and understanding their goals.'}
 
-USER: ${message}
+STRATEGY:
+1. Use "Identity Reinforcement": Remind them of their specific goals (e.g., becoming a software engineer) when they feel an urge.
+2. Be non-judgmental and calm.
+3. Ask reflective questions that connect their current choice to their future self.
+4. Keep responses concise (1-2 paragraphs).
 
-────────────────────────────────────────
-BEHAVIOR CHANGE STRATEGY:
-You must help the user resist urges using safe behavioral techniques:
-1. Distraction: redirect attention to goals, future identity questions.
-2. Awareness: help user notice patterns and triggers.
-3. Consequence reflection: gently ask how habits affect mood, energy, focus.
-4. Identity reinforcement: remind user of who they want to become.
-5. Emotional support: calm, non-judgmental tone.
+NEVER: Shame the user or use fear-based language.
+`;
 
-NEVER: shame, use fear-based language, or manipulate emotions.
+    // 3. Prepare Messages for Groq
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history.map(h => ({ role: h.role === 'ai' ? 'assistant' : 'user', content: h.message })),
+      { role: "user", content: message }
+    ];
 
-FINAL RULES:
-- Ask ONE reflective question max
-- Keep response short and human-like (1–2 paragraphs)
-- Be supportive and non-judgmental
-`
-
+    // 4. Call Groq API
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { 
@@ -91,26 +96,23 @@ FINAL RULES:
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: "You are Anchor, a supportive companion who learns from user feedback." }, 
-          { role: "user", content: prompt }
-        ],
+        messages: messages,
         temperature: 0.7,
         max_tokens: 500
       }),
     })
 
     const groqData = await groqResponse.json();
-    const aiReply = groqData.choices?.[0]?.message?.content || "I'm here for you. How can I help?";
+    const aiReply = groqData.choices?.[0]?.message?.content || "I'm here for you. Let's talk through this.";
 
-    // Log the interaction
+    // 5. Log the interaction for effectiveness tracking
     await supabase.from("response_effectiveness_log").insert({
       user_id: user.id,
-      response_type: safeProfile.ai_tone,
+      response_type: profile.ai_tone,
       outcome: "pending",
       user_message: message,
       ai_response: aiReply,
-      risk_level: safeProfile.risk_level
+      risk_level: profile.risk_level
     });
 
     return new Response(JSON.stringify({ reply: aiReply }), { 

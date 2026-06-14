@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./components/ThemeProvider";
-import { useState } from "react";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -19,13 +18,10 @@ import CheckIn from "./pages/CheckIn";
 import LogUrge from "./pages/LogUrge";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-import PrivacyLock from "./components/PrivacyLock";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [isLocked, setIsLocked] = useState(true);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -33,7 +29,6 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <PrivacyLock onUnlock={() => setIsLocked(false)} />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
