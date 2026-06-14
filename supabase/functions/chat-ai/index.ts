@@ -46,7 +46,7 @@ serve(async (req) => {
     const [profileRes, summaryRes, memoriesRes, historyRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
-      supabase.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(10),
+      supabase.from('user_memories').select('*').eq('user_id', user.id).order('importance_score', { ascending: false }).limit(15),
       supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
     ]);
 
@@ -65,29 +65,36 @@ USER CONTEXT:
 - Triggers: ${profile.triggers?.join(', ') || 'Not specified'}
 - Tone Preference: ${profile.ai_tone || 'supportive'}
 
-IDENTITY ANCHORS & GOALS:
-${memories.map(m => `- ${m.content}`).join('\n')}
+IDENTITY ANCHORS & STORED MEMORIES:
+${memories.map(m => `- [${m.memory_type}] ${m.content} (Importance: ${m.importance_score})`).join('\n')}
 
 BEHAVIORAL SUMMARY:
 ${summary.emotional_profile || 'New user - focus on building trust and understanding their goals.'}
 
-STRATEGY:
-1. Use "Identity Reinforcement": Remind them of their specific goals (e.g., becoming a software engineer) when they feel an urge.
-2. Be non-judgmental and calm.
-3. Ask reflective questions that connect their current choice to their future self.
-4. Keep responses concise (1-2 paragraphs).
+CONVERSATION STRATEGY:
+Do not ask a question in every reply. Avoid being repetitive.
+Choose ONE mode for your response based on the situation:
+- Support: Simple validation and presence. "I hear you. This is tough, but you're not alone."
+- Reflection: "How does this choice fit with the person you're trying to become?"
+- Curiosity: "What usually happens 10 minutes before an urge starts?"
+- Distraction: "Tell me more about those projects you're building. What part are you working on now?"
+- Identity Reinforcement: Use their specific goals (e.g., "You mentioned wanting to be a software engineer...") to ground them.
+- Future Self: "Imagine waking up tomorrow proud of tonight's decision. What did that version of you do?"
+- Victory: "What's one thing you've done recently that you're proud of?"
+- Pattern Detection: "I notice urges often show up when you're stressed. Have you noticed that too?"
 
-NEVER: Shame the user or use fear-based language.
+MEMORY ACCURACY:
+- Only reference information explicitly stored in memory.
+- Never invent personal history or infer facts.
+- If the user mentions a new goal, dream, or value, acknowledge it.
+
+OUTPUT FORMAT:
+You must return a JSON object with two fields:
+1. "reply": Your conversational response.
+2. "new_memories": An array of objects if the user shared a new goal, dream, or identity anchor. Each object should have "content", "memory_type" (e.g., 'goal', 'value', 'hobby'), and "importance_score" (1-5). If no new memory, return an empty array.
 `;
 
-    // 3. Prepare Messages for Groq
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...history.map(h => ({ role: h.role === 'ai' ? 'assistant' : 'user', content: h.message })),
-      { role: "user", content: message }
-    ];
-
-    // 4. Call Groq API
+    // 3. Call Groq API
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { 
@@ -96,16 +103,34 @@ NEVER: Shame the user or use fear-based language.
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: messages,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...history.map(h => ({ role: h.role === 'ai' ? 'assistant' : 'user', content: h.message })),
+          { role: "user", content: message }
+        ],
         temperature: 0.7,
-        max_tokens: 500
       }),
     })
 
     const groqData = await groqResponse.json();
-    const aiReply = groqData.choices?.[0]?.message?.content || "I'm here for you. Let's talk through this.";
+    const result = JSON.parse(groqData.choices?.[0]?.message?.content || '{"reply": "I am here for you.", "new_memories": []}');
+    
+    const aiReply = result.reply;
+    const newMemories = result.new_memories || [];
 
-    // 5. Log the interaction for effectiveness tracking
+    // 4. Save new memories if detected
+    if (newMemories.length > 0) {
+      const memoriesToInsert = newMemories.map((m: any) => ({
+        user_id: user.id,
+        content: m.content,
+        memory_type: m.memory_type || 'general',
+        importance_score: m.importance_score || 3
+      }));
+      await supabase.from('user_memories').insert(memoriesToInsert);
+    }
+
+    // 5. Log the interaction
     await supabase.from("response_effectiveness_log").insert({
       user_id: user.id,
       response_type: profile.ai_tone,
