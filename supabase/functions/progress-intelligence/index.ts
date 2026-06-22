@@ -40,7 +40,7 @@ serve(async (req) => {
     const logs = logRes.data || []
     const profile = profileRes.data || {}
 
-    // 2. Calculate Truth-Based Metrics (Mon-Sun)
+    // 2. Calculate Truth-Based Metrics
     const dailyUrges = Array(7).fill(0)
     const relapseIndices = []
     
@@ -58,22 +58,17 @@ serve(async (req) => {
     const resistedUrges = urges.filter(u => u.resisted !== false).length
     const avgUrges = (totalUrges / 7).toFixed(1)
 
-    // 3. Achievement Logic (Meaningful & Rare)
-    const achievements = []
-    if (profile.total_resisted_urges >= 1) achievements.push("First Resistance")
-    if (profile.current_streak >= 7) achievements.push("7-Day Shield")
-    if (profile.current_streak >= 30) achievements.push("Monthly Anchor")
-    if (profile.best_streak_days >= 14) achievements.push("Consistency King")
-
     const systemPrompt = `
 You are Anchor Progress Intelligence Engine.
 Analyze behavioral data and produce structured insights.
 Return JSON only.
 
-RULES:
-- insights: factual, short, non-emotional. Only if confidence >= 60.
-- reflection: ONE rotating item (question or insight).
-- confidence: 0-100.
+LIGHT INTELLIGENCE LAYER RULES:
+- Generate simple insights ONLY from real numeric patterns.
+- Insights must be factual, statistical, and non-judgmental.
+- NEVER make psychological conclusions or emotional labeling.
+- NEVER make predictive claims without history.
+- If confidence is low or data is insufficient, return "Not enough data yet to detect reliable patterns."
 
 Return JSON:
 {
@@ -131,9 +126,9 @@ DATA:
       additional_metrics: {
         average_urges_per_day: avgUrges
       },
-      insights: aiResult.confidence >= 60 ? aiResult.insights : ["Not enough data yet to detect clear patterns"],
+      insights: aiResult.confidence >= 60 ? aiResult.insights : ["Not enough data yet to detect reliable patterns."],
       reflection: aiResult.reflection,
-      achievements: achievements,
+      achievements: [], // Achievements handled by logic, not AI
       emotional_snapshot: {
         calm_days: logs.filter(l => l.mood_score > 0).length,
         high_urge_days: dailyUrges.filter(u => u > 2).length,
