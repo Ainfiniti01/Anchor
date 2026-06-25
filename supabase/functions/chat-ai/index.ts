@@ -9,24 +9,42 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
+  const functionName = "chat-ai";
+  console.log(`[${functionName}] Request received`);
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const qwenKey = Deno.env.get('QWEN_API_KEY')!
 
+    if (!qwenKey) {
+      console.error(`[${functionName}] QWEN_API_KEY is missing`);
+      throw new Error("QWEN_API_KEY is not configured");
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey)
     
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    if (!authHeader) {
+      console.error(`[${functionName}] No Authorization header`);
+      return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user } } = await supabase.auth.getUser(token)
-    if (!user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      console.error(`[${functionName}] Auth error:`, authError);
+      return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    }
 
     const { message } = await req.json()
+    console.log(`[${functionName}] Processing message for user: ${user.id}`);
 
     // 1. RETRIEVE: Get prioritized memories
-    const { data: memories } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
+    const { data: memories, error: memError } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
+    if (memError) console.warn(`[${functionName}] Memory retrieval error:`, memError);
+
     const [profileRes, historyRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
@@ -55,6 +73,7 @@ USER CONTEXT:
 OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_memory_ids": [], "suggested_check_in_hours": number}
 `;
 
+    console.log(`[${functionName}] Calling Qwen API...`);
     const qwenResponse = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
       method: "POST",
       headers: { 
@@ -72,18 +91,36 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
       })
     });
 
+    if (!qwenResponse.ok) {
+      const errorText = await qwenResponse.text();
+      console.error(`[${functionName}] Qwen API error (${qwenResponse.status}):`, errorText);
+      throw new Error(`Qwen API returned ${qwenResponse.status}`);
+    }
+
     const qwenData = await qwenResponse.json();
+    console.log(`[${functionName}] Qwen API response received`);
+
     if (!qwenData.choices || qwenData.choices.length === 0) {
+      console.error(`[${functionName}] No choices in Qwen response:`, qwenData);
       throw new Error("Invalid response from Qwen API");
     }
-    const result = JSON.parse(qwenData.choices[0].message.content);
+
+    let result;
+    try {
+      result = JSON.parse(qwenData.choices[0].message.content);
+    } catch (parseError) {
+      console.error(`[${functionName}] Failed to parse Qwen content as JSON:`, qwenData.choices[0].message.content);
+      throw new Error("AI returned invalid JSON format");
+    }
 
     // 3. LEARN: Update and Reinforce Memories
     if (result.reinforced_memory_ids?.length > 0) {
+      console.log(`[${functionName}] Reinforcing ${result.reinforced_memory_ids.length} memories`);
       await supabase.rpc('reinforce_memories', { memory_ids: result.reinforced_memory_ids });
     }
 
     if (result.new_memories?.length > 0) {
+      console.log(`[${functionName}] Storing ${result.new_memories.length} new memories`);
       await supabase.from('user_memories').insert(
         result.new_memories.map((m: any) => ({
           user_id: user.id,
@@ -97,6 +134,7 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
 
     // 4. SCHEDULE: Update next check-in time based on conversation
     if (result.suggested_check_in_hours) {
+      console.log(`[${functionName}] Scheduling next check-in in ${result.suggested_check_in_hours} hours`);
       const nextCheckIn = new Date();
       nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
       await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
@@ -107,7 +145,7 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
     });
 
   } catch (error: any) {
-    console.error("[chat-ai] Qwen Error:", error);
+    console.error(`[${functionName}] Error:`, error.message);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
