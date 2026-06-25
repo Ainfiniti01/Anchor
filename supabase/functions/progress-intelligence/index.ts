@@ -12,7 +12,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const qwenKey = Deno.env.get('QWEN_API_KEY') || Deno.env.get('GROQ_API_KEY')!
+    const qwenKey = Deno.env.get('QWEN_API_KEY')!
 
     const supabase = createClient(supabaseUrl, supabaseKey)
     
@@ -23,14 +23,38 @@ serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser(token)
     if (!user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
 
-    // Fetch behavioral data
-    const { data: urges } = await supabase.from('urge_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    // 1. PRE-PROCESS: Calculate metrics in TypeScript
+    const [urgeRes, relapseRes, profileRes] = await Promise.all([
+      supabase.from('urge_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('relapse_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*').eq('id', user.id).single()
+    ]);
 
+    const urges = urgeRes.data || [];
+    const relapses = relapseRes.data || [];
+    const profile = profileRes.data || {};
+
+    // Calculate Peak Day
+    const dayCounts = Array(7).fill(0);
+    urges.forEach(u => dayCounts[new Date(u.created_at).getDay()]++);
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const peakDay = days[dayCounts.indexOf(Math.max(...dayCounts))];
+
+    const metrics = {
+      avg_urges_per_day: (urges.length / 7).toFixed(1),
+      peak_weekday: peakDay,
+      current_streak: profile.current_streak,
+      best_streak: profile.best_streak_days,
+      total_resisted: profile.total_resisted_urges,
+      relapse_count: relapses.length,
+      weekly_change: "calculating..." // Simplified for example
+    };
+
+    // 2. REASON: Send structured metrics to Qwen-Plus
     const systemPrompt = `
 You are the Anchor Behavioral Intelligence Engine.
 Model: Qwen-Plus (Alibaba Cloud)
-Analyze the user's urge patterns and provide statistical insights.
+Analyze these structured metrics and provide deep behavioral insights.
 Return JSON: { "insights": [], "reflection": "", "confidence": 0-100 }
 `;
 
@@ -41,7 +65,7 @@ Return JSON: { "insights": [], "reflection": "", "confidence": 0-100 }
         model: "qwen-plus",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Data: ${JSON.stringify(urges)}; Profile: ${JSON.stringify(profile)}` }
+          { role: "user", content: `Metrics: ${JSON.stringify(metrics)}` }
         ],
         response_format: { type: "json_object" }
       })
@@ -50,8 +74,7 @@ Return JSON: { "insights": [], "reflection": "", "confidence": 0-100 }
     const qwenData = await qwenRes.json();
     const aiResult = JSON.parse(qwenData.choices[0].message.content);
 
-    // Merge with existing logic...
-    return new Response(JSON.stringify({ ...aiResult, streaks: { current_streak: profile.current_streak } }), { 
+    return new Response(JSON.stringify({ ...aiResult, ...metrics }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
 
