@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
+  'Access-Control-Allow-Origin<dyad-write path="supabase/functions/chat-ai/index.ts" description="Fixing syntax error in the Qwen API fetch request and completing the MemoryAgent loop.">
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+
+const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -12,7 +17,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const qwenKey = Deno.env.get('QWEN_API_KEY')! // Strict Qwen usage
+    const qwenKey = Deno.env.get('QWEN_API_KEY')!
 
     const supabase = createClient(supabaseUrl, supabaseKey)
     
@@ -43,7 +48,7 @@ Model: Qwen-Max (Alibaba Cloud)
 MEMORY TYPES: identity, goal, trigger, coping_strategy, preference, project, relationship, fear, motivation, achievement, routine.
 
 AGENT RULES:
-- VERIFY: If a memory is older than 90 days or has confidence < 0.7, verify it (e.g., "Is [Goal] still your focus?").
+- VERIFY: If a memory is older than 90 days or has confidence < 0.7, verify it (e.g., "Last time you mentioned [Goal]. Is that still your focus?").
 - REINFORCE: If the user confirms or repeats a memory, note it for reinforcement.
 - STYLE: ${profile.ai_tone || 'Supportive Friend'}.
 - LOOP: Observe -> Acknowledge -> Reflect -> Suggest -> Reconnect.
@@ -51,11 +56,16 @@ AGENT RULES:
 USER CONTEXT:
 - Streak: ${profile.current_streak} days
 - Memories: ${memories?.map(m => `[ID:${m.id}][Type:${m.memory_type}][Conf:${m.confidence}] ${m.content}`).join('; ')}
+
+OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_memory_ids": [], "suggested_check_in_hours": number}
 `;
 
     const qwenResponse = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
       method: "POST",
-      headers: { "Authorization":{ "Authorization": `Bearer ${qwenKey}`, "Content-Type": "application/json" },
+      headers: { 
+        "Authorization": `Bearer ${qwenKey}`, 
+        "Content-Type": "application/json" 
+      },
       body: JSON.stringify({
         model: "qwen-max",
         messages: [
@@ -68,6 +78,9 @@ USER CONTEXT:
     });
 
     const qwenData = await qwenResponse.json();
+    if (!qwenData.choices || qwenData.choices.length === 0) {
+      throw new Error("Invalid response from Qwen API");
+    }
     const result = JSON.parse(qwenData.choices[0].message.content);
 
     // 3. LEARN: Update and Reinforce Memories
