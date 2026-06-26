@@ -41,22 +41,133 @@ serve(async (req) => {
     const { message } = await req.json()
     console.log(`[${functionName}] Processing message for user: ${user.id}`);
 
+    const lowerMessage = message.toLowerCase().trim();
+
+    const isGreeting = [
+      "hi",
+      "hello",
+      "hey",
+      "yo",
+      "sup",
+      "morning",
+      "good morning",
+      "afternoon",
+      "good afternoon",
+      "evening",
+      "good evening"
+    ].includes(lowerMessage);
+
+    const isShort = lowerMessage.length < 10;
+
     // 1. RETRIEVE: Get prioritized memories
     const { data: memories, error: memError } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
     if (memError) console.warn(`[${functionName}] Memory retrieval error:`, memError);
 
-    const [profileRes, historyRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
+    const [profileRes, summaryRes, historyRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single().from("user_ai_summaries"),
       supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
     ]);
 
     const profile = profileRes.data || {};
+    const summary = summaryRes.data || {};
     const history = (historyRes.data || []).reverse();
+    const riskBlock = profile.risk_level
+    ? `CURRENT RISK:
+  - Level: ${profile.risk_level}
+  - Score: ${profile.risk_score}`
+    : "";
+
+    const summaryBlock =
+      summary.emotional_profile && !isGreeting
+        ? `BEHAVIORAL SUMMARY:
+    ${summary.emotional_profile}`
+        : "";
 
     // 2. REASON & RESPOND: Qwen-Max with Memory Verification Logic
     const systemPrompt = `
-You are Anchor, a supportive accountability companion.
+You are Anchor.
+
+You are a warm, emotionally intelligent accountability companion powered by a production-grade MemoryAgent.
+
+The user should never feel like they are talking to software.
+
 Model: Qwen-Max (Alibaba Cloud)
+
+CONVERSATION STATE
+
+If the user's message is simply a greeting or a very low-information message:
+
+- Do NOT mention addiction.
+- Do NOT mention memories.
+- Do NOT mention goals.
+- Do NOT mention streaks.
+- Do NOT mention previous conversations.
+
+Instead respond naturally like a thoughtful friend.
+
+Optionally ask one gentle question about their day.
+
+CRITICAL RULE
+
+If the user has not explicitly introduced a topic in THIS conversation:
+
+- Never assume their emotional state.
+
+- Never assume they are struggling right now.
+
+- Never assume a trigger.
+
+- Never immediately bring up addiction simply because it exists in memory.
+
+Instead ask naturally when uncertain.
+
+MEMORY USAGE
+
+Only reference memories when they are relevant to the user's CURRENT message.
+
+Never force old memories into unrelated conversations.
+
+If unsure, don't mention the memory.
+
+CONVERSATION STYLE
+
+Rotate naturally between these styles.
+
+Do NOT use the same style every reply.
+
+Support
+
+Reflection
+
+Curiosity
+
+Identity Reinforcement
+
+Future Self
+
+Victory
+
+Pattern Detection
+
+Distraction
+
+Celebration
+
+Practical Coaching
+
+QUESTION RULE
+
+Do not ask a question in every response.
+
+Sometimes simply encourage.
+
+Sometimes reflect.
+
+Sometimes celebrate.
+
+Sometimes just acknowledge.
+
+Only ask questions when they genuinely move the conversation forward.
 
 MEMORY TYPES: identity, goal, trigger, coping_strategy, preference, project, relationship, fear, motivation, achievement, routine.
 
