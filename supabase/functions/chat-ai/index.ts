@@ -41,49 +41,46 @@ serve(async (req) => {
     const { message } = await req.json()
     console.log(`[${functionName}] Processing message for user: ${user.id}`);
 
+    // 1) Greeting Detection
     const lowerMessage = message.toLowerCase().trim();
-
     const isGreeting = [
-      "hi",
-      "hello",
-      "hey",
-      "yo",
-      "sup",
-      "morning",
-      "good morning",
-      "afternoon",
-      "good afternoon",
-      "evening",
-      "good evening"
+      "hi", "hello", "hey", "yo", "sup", "morning", "good morning", 
+      "afternoon", "good afternoon", "evening", "good evening"
     ].includes(lowerMessage);
-
     const isShort = lowerMessage.length < 10;
 
-    // 1. RETRIEVE: Get prioritized memories
+    // 2) Retrieve Data (including AI Summary)
     const { data: memories, error: memError } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
     if (memError) console.warn(`[${functionName}] Memory retrieval error:`, memError);
 
     const [profileRes, summaryRes, historyRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single().from("user_ai_summaries"),
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('user_ai_summaries').select('*').eq('user_id', user.id).single(),
       supabase.from('chat_messages').select('role, message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
     ]);
 
     const profile = profileRes.data || {};
     const summary = summaryRes.data || {};
     const history = (historyRes.data || []).reverse();
+
+    // 3) Risk Block
     const riskBlock = profile.risk_level
-    ? `CURRENT RISK:
-  - Level: ${profile.risk_level}
-  - Score: ${profile.risk_score}`
-    : "";
+      ? `CURRENT RISK:\n- Level: ${profile.risk_level}\n- Score: ${profile.risk_score}`
+      : "";
 
-    const summaryBlock =
-      summary.emotional_profile && !isGreeting
-        ? `BEHAVIORAL SUMMARY:
-    ${summary.emotional_profile}`
-        : "";
+    // 4) Emotional Summary Block
+    const summaryBlock = summary.emotional_profile && !isGreeting
+      ? `BEHAVIORAL SUMMARY:\n${summary.emotional_profile}`
+      : "";
 
-    // 2. REASON & RESPOND: Qwen-Max with Memory Verification Logic
+    // 5) Dynamic Memory Block
+    const memoryBlock = memories?.length && !isGreeting
+      ? memories
+          .map(m => `[ID:${m.id}]\nType:${m.memory_type}\nConfidence:${m.confidence}\n${m.content}`)
+          .join("\n\n")
+      : "No memory should be referenced unless the user naturally brings up something related.";
+
+    // 6-12) Personality & Rules
     const systemPrompt = `
 You are Anchor.
 
@@ -96,7 +93,6 @@ Model: Qwen-Max (Alibaba Cloud)
 CONVERSATION STATE
 
 If the user's message is simply a greeting or a very low-information message:
-
 - Do NOT mention addiction.
 - Do NOT mention memories.
 - Do NOT mention goals.
@@ -104,19 +100,14 @@ If the user's message is simply a greeting or a very low-information message:
 - Do NOT mention previous conversations.
 
 Instead respond naturally like a thoughtful friend.
-
 Optionally ask one gentle question about their day.
 
 CRITICAL RULE
 
 If the user has not explicitly introduced a topic in THIS conversation:
-
 - Never assume their emotional state.
-
 - Never assume they are struggling right now.
-
 - Never assume a trigger.
-
 - Never immediately bring up addiction simply because it exists in memory.
 
 Instead ask naturally when uncertain.
@@ -124,49 +115,18 @@ Instead ask naturally when uncertain.
 MEMORY USAGE
 
 Only reference memories when they are relevant to the user's CURRENT message.
-
 Never force old memories into unrelated conversations.
-
 If unsure, don't mention the memory.
 
 CONVERSATION STYLE
 
-Rotate naturally between these styles.
-
-Do NOT use the same style every reply.
-
-Support
-
-Reflection
-
-Curiosity
-
-Identity Reinforcement
-
-Future Self
-
-Victory
-
-Pattern Detection
-
-Distraction
-
-Celebration
-
-Practical Coaching
+Rotate naturally between these styles. Do NOT use the same style every reply.
+Support, Reflection, Curiosity, Identity Reinforcement, Future Self, Victory, Pattern Detection, Distraction, Celebration, Practical Coaching.
 
 QUESTION RULE
 
 Do not ask a question in every response.
-
-Sometimes simply encourage.
-
-Sometimes reflect.
-
-Sometimes celebrate.
-
-Sometimes just acknowledge.
-
+Sometimes simply encourage, reflect, celebrate, or just acknowledge.
 Only ask questions when they genuinely move the conversation forward.
 
 MEMORY TYPES: identity, goal, trigger, coping_strategy, preference, project, relationship, fear, motivation, achievement, routine.
@@ -177,35 +137,41 @@ AGENT RULES:
 - STYLE: ${profile.ai_tone || 'Supportive Friend'}.
 - LOOP: Observe -> Acknowledge -> Reflect -> Suggest -> Reconnect.
 
-USER CONTEXT:
-- Streak: ${profile.current_streak} days
-- Memories: ${memories?.map(m => `[ID:${m.id}][Type:${m.memory_type}][Conf:${m.confidence}] ${m.content}`).join('; ')}
+CURRENT STATE
 
-OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_memory_ids": [], "suggested_check_in_hours": number}
+Current streak:
+${profile.current_streak}
+
+${riskBlock}
+
+${summaryBlock}
+
+MEMORIES:
+${memoryBlock}
 `;
 
     const qwenResponse = await fetch(
-  "https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${qwenKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "qwen3.7-max-2026-06-08",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...history.map(h => ({
-          role: h.role === "ai" ? "assistant" : "user",
-          content: h.message,
-        })),
-        { role: "user", content: message },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  }
-);
+      "https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${qwenKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "qwen3.7-max-2026-06-08",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...history.map(h => ({
+              role: h.role === "ai" ? "assistant" : "user",
+              content: h.message,
+            })),
+            { role: "user", content: message },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      }
+    );
 
     if (!qwenResponse.ok) {
       const errorText = await qwenResponse.text();
@@ -213,31 +179,32 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
       throw new Error(`Qwen API returned ${qwenResponse.status}`);
     }
 
-
     const qwenData = await qwenResponse.json();
-    console.log(`[${functionName}] Qwen API response received`);
-
     if (!qwenData.choices || qwenData.choices.length === 0) {
-      console.error(`[${functionName}] No choices in Qwen response:`, qwenData);
       throw new Error("Invalid response from Qwen API");
     }
 
-    let result;
-    try {
-      result = JSON.parse(qwenData.choices[0].message.content);
-    } catch (parseError) {
-      console.error(`[${functionName}] Failed to parse Qwen content as JSON:`, qwenData.choices[0].message.content);
-      throw new Error("AI returned invalid JSON format");
-    }
+    const result = JSON.parse(qwenData.choices[0].message.content);
+    const aiReply = result.reply;
+
+    // 14) Response Logging
+    await supabase
+      .from("response_effectiveness_log")
+      .insert({
+        user_id: user.id,
+        response_type: profile.ai_tone,
+        outcome: "pending",
+        user_message: message,
+        ai_response: aiReply,
+        risk_level: profile.risk_level
+      });
 
     // 3. LEARN: Update and Reinforce Memories
     if (result.reinforced_memory_ids?.length > 0) {
-      console.log(`[${functionName}] Reinforcing ${result.reinforced_memory_ids.length} memories`);
       await supabase.rpc('reinforce_memories', { memory_ids: result.reinforced_memory_ids });
     }
 
     if (result.new_memories?.length > 0) {
-      console.log(`[${functionName}] Storing ${result.new_memories.length} new memories`);
       await supabase.from('user_memories').insert(
         result.new_memories.map((m: any) => ({
           user_id: user.id,
@@ -249,15 +216,14 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
       );
     }
 
-    // 4. SCHEDULE: Update next check-in time based on conversation
+    // 4. SCHEDULE: Update next check-in time
     if (result.suggested_check_in_hours) {
-      console.log(`[${functionName}] Scheduling next check-in in ${result.suggested_check_in_hours} hours`);
       const nextCheckIn = new Date();
       nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
       await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
     }
 
-    return new Response(JSON.stringify({ reply: result.reply }), { 
+    return new Response(JSON.stringify({ reply: aiReply }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
 
@@ -266,4 +232,3 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
-
