@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, ShieldAlert, X, Loader2 } from 'lucide-react';
+import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, ShieldAlert, X, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import MobileLayout from '@/components/MobileLayout';
@@ -14,6 +14,7 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [showBanner, setShowBanner] = useState(true);
   const [isVerified, setIsVerified] = useState(true);
+  const [isCheckInDue, setIsCheckInDue] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -26,7 +27,12 @@ const Home = () => {
           .eq('id', user.id)
           .single();
         
-        if (!error) setProfile(data);
+        if (!error) {
+          setProfile(data);
+          if (data.next_check_in_at && new Date(data.next_check_in_at) <= new Date()) {
+            setIsCheckInDue(true);
+          }
+        }
       }
       setLoading(false);
     };
@@ -71,18 +77,36 @@ const Home = () => {
           </div>
         </header>
 
-        <Card className="p-6 bg-indigo-600 text-white border-none shadow-lg shadow-indigo-200 dark:shadow-none rounded-3xl">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-indigo-100 text-sm font-medium">Next Check-in</p>
-              <h3 className="text-xl font-bold">Daily Reflection</h3>
+        {isCheckInDue ? (
+          <Card className="p-6 bg-emerald-600 text-white border-none shadow-lg shadow-emerald-200 dark:shadow-none rounded-3xl animate-pulse">
+            <div className="flex justify-between items-start mb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-emerald-100 text-sm font-bold uppercase tracking-wider">
+                  <Sparkles size={16} />
+                  <span>Anchor is waiting</span>
+                </div>
+                <h3 className="text-xl font-bold">Time for a check-in?</h3>
+                <p className="text-emerald-50 text-sm">You mentioned staying consistent earlier. How's it going?</p>
+              </div>
             </div>
-            <Clock className="text-indigo-200" />
-          </div>
-          <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold">
-            Start Check-in
-          </Button>
-        </Card>
+            <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold">
+              Check In Now
+            </Button>
+          </Card>
+        ) : (
+          <Card className="p-6 bg-indigo-600 text-white border-none shadow-lg shadow-indigo-200 dark:shadow-none rounded-3xl">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-indigo-100 text-sm font-medium">Next Check-in</p>
+                <h3 className="text-xl font-bold">Daily Reflection</h3>
+              </div>
+              <Clock className="text-indigo-200" />
+            </div>
+            <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold">
+              Start Check-in
+            </Button>
+          </Card>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex flex-col items-center text-center gap-2">
