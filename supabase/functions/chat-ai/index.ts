@@ -55,7 +55,7 @@ serve(async (req) => {
 
     // 2. REASON & RESPOND: Qwen-Max with Memory Verification Logic
     const systemPrompt = `
-You are Anchor, a production-grade MemoryAgent.
+You are Anchor, a supportive accountability companion.
 Model: Qwen-Max (Alibaba Cloud)
 
 MEMORY TYPES: identity, goal, trigger, coping_strategy, preference, project, relationship, fear, motivation, achievement, routine.
@@ -73,29 +73,35 @@ USER CONTEXT:
 OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_memory_ids": [], "suggested_check_in_hours": number}
 `;
 
-    console.log(`[${functionName}] Calling Qwen API...`);
-    const qwenResponse = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-      method: "POST",
-      headers: { 
-        "Authorization": `Bearer ${qwenKey}`, 
-        "Content-Type": "application/json" 
-      },
-      body: JSON.stringify({
-        model: "qwen-max",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...history.map(h => ({ role: h.role === 'ai' ? 'assistant' : 'user', content: h.message })),
-          { role: "user", content: message }
-        ],
-        response_format: { type: "json_object" }
-      })
-    });
+    const qwenResponse = await fetch(
+  "https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${qwenKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "qwen3.7-max-2026-06-08",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...history.map(h => ({
+          role: h.role === "ai" ? "assistant" : "user",
+          content: h.message,
+        })),
+        { role: "user", content: message },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  }
+);
 
     if (!qwenResponse.ok) {
       const errorText = await qwenResponse.text();
       console.error(`[${functionName}] Qwen API error (${qwenResponse.status}):`, errorText);
       throw new Error(`Qwen API returned ${qwenResponse.status}`);
     }
+
 
     const qwenData = await qwenResponse.json();
     console.log(`[${functionName}] Qwen API response received`);
@@ -149,3 +155,4 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [], "reinforced_m
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
+
