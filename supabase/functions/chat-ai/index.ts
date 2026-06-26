@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -20,8 +19,8 @@ serve(async (req) => {
     const qwenKey = Deno.env.get('QWEN_API_KEY');
 
     if (!supabaseUrl || !supabaseKey || !qwenKey) {
-      console.error(`[${functionName}] Missing environment variables`);
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
+      console.error(`[${functionName}] Missing environment variables. Ensure QWEN_API_KEY is set.`);
+      return new Response(JSON.stringify({ error: 'AI Configuration missing. Please set QWEN_API_KEY in Supabase secrets.' }), { 
         status: 500, 
         headers: corsHeaders 
       });
@@ -42,7 +41,6 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      console.error(`[${functionName}] Auth error:`, authError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
         status: 401, 
         headers: corsHeaders 
@@ -57,11 +55,12 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[${functionName}] Processing message for user: ${user.id}`);
+    // 1. TRIGGER MEMORY DECAY (Requirement 6)
+    // We run this on every message to ensure the "MemoryAgent" is always learning/forgetting
+    await supabase.rpc('decay_memories').catch(err => console.error(`[${functionName}] Decay error:`, err));
 
-    // 1. RETRIEVE: Get prioritized memories & context
-    const { data: memories, error: memError } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
-    if (memError) console.warn(`[${functionName}] Memory retrieval error:`, memError);
+    // 2. RETRIEVE: Get prioritized memories & context
+    const { data: memories } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
 
     const [profileRes, summaryRes, historyRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
@@ -73,11 +72,10 @@ serve(async (req) => {
     const summary = summaryRes.data || {};
     const history = (historyRes.data || []).reverse();
 
-    // Build Context Blocks
     const riskBlock = profile.risk_level ? `[CURRENT RISK: ${profile.risk_level} (Score: ${profile.risk_score})]` : "";
     const summaryBlock = summary.emotional_profile ? `[BEHAVIORAL PROFILE: ${summary.emotional_profile}]` : "";
 
-    // 2. REASON & RESPOND
+    // 3. REASON & RESPOND
     const systemPrompt = `
 You are Anchor, a warm, emotionally intelligent accountability companion.
 Model: Qwen-Max (Alibaba Cloud)
@@ -95,10 +93,7 @@ AGENT INSTRUCTIONS:
 1. VERIFY: If a memory is older than 90 days or confidence < 0.7, verify it gently.
 2. REINFORCE: If the user confirms a memory, include its ID in 'reinforced_memory_ids'.
 3. REFLECT: Look for "Reflection Memories" (achievements, experiences, small wins). Store them with type 'achievement' or 'experience'.
-4. ADAPT: Strictly follow the ${profile.ai_tone || 'Supportive Friend'} style. 
-   - 'Supportive Friend': Warm, empathetic, casual.
-   - 'Accountability Coach': Direct, goal-oriented, firm but kind.
-   - 'Neutral Companion': Objective, calm, non-judgmental.
+4. ADAPT: Strictly follow the ${profile.ai_tone || 'Supportive Friend'} style.
 
 OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [{"content": "string", "memory_type": "string", "importance_score": 1-5}], "reinforced_memory_ids": [], "suggested_check_in_hours": number}
 `;
@@ -124,21 +119,22 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [{"content": "str
     );
 
     if (!qwenResponse.ok) {
-      const errorText = await qwenResponse.text();
-      console.error(`[${functionName}] Qwen API error:`, errorText);
-      throw new Error(`AI Service error: ${qwenResponse.statusText}`);
+      const errorData = await qwenResponse.json();
+      console.error(`[${functionName}] Qwen API error:`, JSON.stringify(errorData));
+      return new Response(JSON.stringify({ error: 'The AI service rejected the API key. Please check your QWEN_API_KEY in Supabase secrets.' }), { 
+        status: 401, 
+        headers: corsHeaders 
+      });
     }
 
     const qwenData = await qwenResponse.json();
     const result = JSON.parse(qwenData.choices[0].message.content);
 
-    // 3. LEARN & UPDATE (Async background tasks)
+    // 4. LEARN & UPDATE (Background)
     const updateTasks = [];
-
     if (result.reinforced_memory_ids?.length > 0) {
       updateTasks.push(supabase.rpc('reinforce_memories', { memory_ids: result.reinforced_memory_ids }));
     }
-
     if (result.new_memories?.length > 0) {
       updateTasks.push(supabase.from('user_memories').insert(
         result.new_memories.map((m: any) => ({
@@ -150,16 +146,14 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [{"content": "str
         }))
       ));
     }
-
     if (result.suggested_check_in_hours) {
       const nextCheckIn = new Date();
       nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
       updateTasks.push(supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id));
     }
 
-    // Wait for updates to complete (or at least start)
     if (updateTasks.length > 0) {
-      Promise.all(updateTasks).catch(err => console.error(`[${functionName}] Background update error:`, err));
+      Promise.all(updateTasks).catch(err => console.error(`[${functionName}] Update error:`, err));
     }
 
     return new Response(JSON.stringify({ reply: result.reply }), { 
@@ -168,7 +162,7 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [{"content": "str
 
   } catch (error: any) {
     console.error(`[${functionName}] Error:`, error.message);
-    return new Response(JSON.stringify({ error: error.message }), { 
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { 
       status: 500, 
       headers: corsHeaders 
     });
