@@ -580,43 +580,71 @@ const Settings = () => {
       </Dialog>
 
       {/* About Dialog */}
-      <Dialog open={isAboutOpen} onOpenChange={setIsAboutOpen}>
-        <DialogContent className="rounded-3xl max-w-[320px]">
-          <DialogHeader>
-            <DialogTitle>About Anchor</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            <p>
-              ⚓ <strong>Anchor</strong> is your private memory-powered accountability companion.
-            </p>
-            <p>
-              Unlike standard tracking apps, Anchor uses a high-performance memory agent powered by Alibaba Cloud Qwen-Max and DashScope to build deep, empathetic insights tailored directly to your personal recovery goals and triggers.
-            </p>
-            <p className="text-xs text-slate-400 mt-4">
-              Version 1.2.0 • Made with ❤️ for Global AI Hackathon
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
+<Dialog open={isAboutOpen} onOpenChange={setIsAboutOpen}>
+  <DialogContent className="rounded-3xl max-w-[320px]">
+    <DialogHeader>
+      <DialogTitle>About Anchor</DialogTitle>
+    </DialogHeader>
 
-      {/* Privacy Policy Dialog */}
-      <Dialog open={isPrivacyOpen} onOpenChange={setIsPrivacyOpen}>
-        <DialogContent className="rounded-3xl max-w-[320px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Privacy & Terms</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            <h4 className="font-bold text-slate-800 dark:text-slate-100">1. Data Storage</h4>
-            <p>All sensitive logs, reflection notes, and memories are stored securely within Supabase with strict Row-Level Security (RLS). Nobody except you has authorization to view your records.</p>
-            
-            <h4 className="font-bold text-slate-800 dark:text-slate-100">2. AI Encryption</h4>
-            <p>Your goals and experiences are compressed using a secure, weighted retrieval & decay engine. Generative models only analyze the minimum required context to support you.</p>
+    <div className="space-y-3 py-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+      <p>
+        ⚓ <strong>Anchor</strong> is your private, memory-powered accountability companion.
+      </p>
 
-            <h4 className="font-bold text-slate-800 dark:text-slate-100">3. Local Safety</h4>
-            <p>Enabling App Lock protects your device in case someone else gets hold of it. Secure PIN hashing protects authorization vectors from brute force attempts.</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <p>
+        Unlike traditional habit trackers, Anchor uses long-term memory and
+        Alibaba Cloud&apos;s Qwen AI to provide personalized support based on
+        your goals, recovery journey, and meaningful conversations.
+      </p>
+
+      <p className="text-xs text-slate-400 mt-4">
+        Version 1.2.0 • Built for the Global AI Hackathon
+      </p>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Privacy Policy Dialog */}
+<Dialog open={isPrivacyOpen} onOpenChange={setIsPrivacyOpen}>
+  <DialogContent className="rounded-3xl max-w-[320px] max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>Privacy Policy</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-3 py-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+      <h4 className="font-bold text-slate-800 dark:text-slate-100">
+        1. Data Protection
+      </h4>
+
+      <p>
+        Your logs, reflections, and personal data are securely stored in
+        Supabase and protected using Row-Level Security (RLS), helping ensure
+        that only you can access your records.
+      </p>
+
+      <h4 className="font-bold text-slate-800 dark:text-slate-100">
+        2. AI Processing
+      </h4>
+
+      <p>
+        Anchor uses Alibaba Cloud&apos;s Qwen AI together with a secure memory
+        system that prioritizes relevant information while gradually reducing
+        the influence of outdated context. Only the minimum information needed
+        is processed to provide personalized support.
+      </p>
+
+      <h4 className="font-bold text-slate-800 dark:text-slate-100">
+        3. App Security
+      </h4>
+
+      <p>
+        When App Lock is enabled, your PIN is securely hashed before storage
+        and is never saved in plain text, helping protect your account if
+        someone else gains access to your device.
+      </p>
+    </div>
+  </DialogContent>
+</Dialog>
     </MobileLayout>
   );
 };
