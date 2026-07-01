@@ -250,18 +250,7 @@ const Progress = () => {
           </p>
         </Card>
 
-        {/* Achievements list */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Achievements</h3>
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-            {achievements.map((ach: string, i: number) => (
-              <Card key={i} className="p-4 rounded-2xl border-none bg-amber-50 dark:bg-amber-900/20 flex flex-col items-center text-center gap-2 min-w-[130px] shadow-sm">
-                <Award className="text-amber-500 animate-bounce" size={24} style={{ animationDuration: '3s' }} />
-                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase leading-tight">{ach}</span>
-              </Card>
-            ))}
-          </div>
-        </div>
+        
       </div>
     </MobileLayout>
   );
