@@ -7,12 +7,13 @@ import { supabase } from '@/integrations/supabase/client';
 export function useAuthLock() {
   const location = useLocation();
   const [isLocked, setIsLocked] = useState(false);
-  const [lastActive, setLastActive] = useState<number>(Date.now());
-  const lastActiveRef = useRef<number>(Date.now());
   const [config, setConfig] = useState<{ enabled: boolean; timeout: number }>({
     enabled: false,
     timeout: 0
   });
+
+  const lastActiveRef = useRef<number>(Date.now());
+  const hasInitializedRef = useRef(false);
 
   // Paths that should NEVER trigger a PIN lock
   const safePaths = ['/', '/login', '/register', '/onboarding', '/forgot-password', '/setup-profile'];
@@ -21,9 +22,14 @@ export function useAuthLock() {
   const fetchConfig = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     
-    if (!user || isSafePath) {
+    if (!user) {
       setIsLocked(false);
-      if (!user) setConfig({ enabled: false, timeout: 0 });
+      setConfig({ enabled: false, timeout: 0 });
+      return;
+    }
+
+    if (isSafePath) {
+      setIsLocked(false);
       return;
     }
 
@@ -45,22 +51,22 @@ export function useAuthLock() {
       });
       
       // If PIN lock is enabled on initial load and we aren't in a safe path, lock it!
-      if (isPinEnabled && !isSafePath && !isLocked) {
+      // Once unlocked, hasInitializedRef avoids locking the user back out immediately.
+      if (isPinEnabled && !hasInitializedRef.current) {
         setIsLocked(true);
+        hasInitializedRef.current = true;
       }
     } else {
       setIsLocked(false);
     }
-  }, [isSafePath, isLocked]);
+  }, [isSafePath]);
 
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
 
   const updateActivity = useCallback(() => {
-    const now = Date.now();
-    setLastActive(now);
-    lastActiveRef.current = now;
+    lastActiveRef.current = Date.now();
   }, []);
 
   // Track user activity and lock after period of absolute idle time
