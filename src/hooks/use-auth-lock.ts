@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,6 +8,7 @@ export function useAuthLock() {
   const location = useLocation();
   const [isLocked, setIsLocked] = useState(false);
   const [lastActive, setLastActive] = useState<number>(Date.now());
+  const lastActiveRef = useRef<number>(Date.now());
   const [config, setConfig] = useState<{ enabled: boolean; timeout: number }>({
     enabled: false,
     timeout: 0
@@ -40,47 +41,83 @@ export function useAuthLock() {
       
       setConfig({
         enabled: isPinEnabled,
-        timeout: profile.auto_lock_timeout || 0
+        timeout: profile.auto_lock_timeout ?? 0
       });
       
-      // Only lock if PIN is enabled, a PIN actually exists, AND we are NOT on a safe path
-      if (isPinEnabled && !isSafePath) {
+      // If PIN lock is enabled on initial load and we aren't in a safe path, lock it!
+      if (isPinEnabled && !isSafePath && !isLocked) {
         setIsLocked(true);
-      } else {
-        setIsLocked(false);
       }
     } else {
       setIsLocked(false);
     }
-  }, [isSafePath]);
+  }, [isSafePath, isLocked]);
 
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
 
-  useEffect(() => {
-    if (!config.enabled || isSafePath) {
-      if (isSafePath) setIsLocked(false);
-      return;
-    }
+  const updateActivity = useCallback(() => {
+    const now = Date.now();
+    setLastActive(now);
+    lastActiveRef.current = now;
+  }, []);
 
-    const handleStateChange = () => {
+  // Track user activity and lock after period of absolute idle time
+  useEffect(() => {
+    if (!config.enabled || isSafePath || isLocked) return;
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    const handleActivity = () => {
+      updateActivity();
+    };
+
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    // Check inactivity every 1 second
+    const interval = setInterval(() => {
+      if (isLocked || isSafePath) return;
+      
+      const now = Date.now();
+      const elapsedSeconds = (now - lastActiveRef.current) / 1000;
+      
+      if (elapsedSeconds > config.timeout) {
+        setIsLocked(true);
+      }
+    }, 1000);
+
+    // Visibility change check
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
-        const elapsed = (now - lastActive) / 1000;
-        if (elapsed > config.timeout) {
+        const elapsedSeconds = (now - lastActiveRef.current) / 1000;
+        if (elapsedSeconds > config.timeout) {
           setIsLocked(true);
+        } else {
+          updateActivity();
         }
       } else {
-        setLastActive(Date.now());
+        lastActiveRef.current = Date.now();
       }
     };
 
-    document.addEventListener('visibilitychange', handleStateChange);
-    return () => document.removeEventListener('visibilitychange', handleStateChange);
-  }, [config, lastActive, isSafePath]);
+    document.addEventListener('visibilitychange', handleVisibility);
 
-  const unlock = () => setIsLocked(false);
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [config.enabled, config.timeout, isSafePath, isLocked, updateActivity]);
+
+  const unlock = () => {
+    updateActivity();
+    setIsLocked(false);
+  };
 
   return { isLocked, unlock, config, refreshConfig: fetchConfig };
 }
