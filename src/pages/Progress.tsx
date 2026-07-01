@@ -237,6 +237,19 @@ const Progress = () => {
           </div>
         </Card>
 
+        
+
+        {/* AI Reflection Prompter */}
+        <Card className="p-6 rounded-3xl border-none bg-indigo-50 dark:bg-indigo-900/20 space-y-3 shadow-sm">
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+            <Target size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider">Reflection Prompt</span>
+          </div>
+          <p className="text-slate-700 dark:text-slate-300 font-medium">
+            {profile?.reflection_prompt || "What is one small win you noticed in your behavior this week?"}
+          </p>
+        </Card>
+
         {/* Achievements list */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Achievements</h3>
@@ -249,17 +262,6 @@ const Progress = () => {
             ))}
           </div>
         </div>
-
-        {/* AI Reflection Prompter */}
-        <Card className="p-6 rounded-3xl border-none bg-indigo-50 dark:bg-indigo-900/20 space-y-3 shadow-sm">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-            <Target size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider">Reflection Prompt</span>
-          </div>
-          <p className="text-slate-700 dark:text-slate-300 font-medium">
-            {profile?.reflection_prompt || "What is one small win you noticed in your behavior this week?"}
-          </p>
-        </Card>
       </div>
     </MobileLayout>
   );
