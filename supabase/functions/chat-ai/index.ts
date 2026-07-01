@@ -118,6 +118,16 @@ OUTPUT FORMAT: Return JSON {"reply": "string", "new_memories": [{"content": "str
       await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
     }
 
+    // Call evaluate-user in the background so dashboard updates
+    fetch(`${supabaseUrl}/functions/v1/evaluate-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ event: 'chat' })
+    }).catch(err => console.error("[chat-ai] Error invoking evaluate-user in background:", err));
+
     return new Response(JSON.stringify({ reply: result.reply }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });

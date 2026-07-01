@@ -14,69 +14,68 @@ const LogUrge = () => {
   const [loading, setLoading] = useState(false);
 
   const handleLog = async () => {
-  if (intensity === null) return;
+    if (intensity === null) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) throw new Error("Not authenticated");
+      if (!user) throw new Error("Not authenticated");
 
-    // 1. Save urge
-    const { error: urgeError } = await supabase
-      .from("urge_logs")
-      .insert([
+      // 1. Save urge
+      const { error: urgeError } = await supabase
+        .from("urge_logs")
+        .insert([
+          {
+            user_id: user.id,
+            intensity,
+            resisted: true,
+          },
+        ]);
+
+      if (urgeError) throw urgeError;
+
+      // 2. Get access token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) throw new Error("No active session");
+
+      // 3. Ask AI to re-evaluate the user with hardcoded URL
+      const response = await fetch(
+        "https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/evaluate-user",
         {
-          user_id: user.id,
-          intensity,
-          resisted: true,
-        },
-      ]);
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event: "urge_log",
+          }),
+        }
+      );
 
-    if (urgeError) throw urgeError;
-
-    // 2. Get access token
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) throw new Error("No active session");
-
-    // 3. Ask AI to re-evaluate the user
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evaluate-user`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          event: "urge_log",
-        }),
+      if (!response.ok) {
+        throw new Error("Failed to evaluate recovery state");
       }
-    );
 
-    if (!response.ok) {
-      throw new Error("Failed to evaluate recovery state");
+      showSuccess(
+        "Urge logged successfully. Anchor has updated your recovery progress."
+      );
+
+      navigate("/home");
+    } catch (error: any) {
+      console.error(error);
+      showError(error.message || "Failed to log urge.");
+    } finally {
+      setLoading(false);
     }
-
-    showSuccess(
-      "Urge logged successfully. Anchor has updated your recovery progress."
-    );
-
-    navigate("/home");
-  } catch (error: any) {
-    console.error(error);
-
-    showError(error.message || "Failed to log urge.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 flex flex-col max-w-md mx-auto">

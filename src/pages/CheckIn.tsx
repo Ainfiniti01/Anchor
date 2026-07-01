@@ -23,7 +23,7 @@ const CheckIn = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not found");
 
-      // Insert log - this will trigger the streak update in the DB
+      // 1. Insert log - this will trigger the streak update in the DB
       const { error: logError } = await supabase.from('behavioral_logs').insert([{
         user_id: user.id,
         mood_score: mood,
@@ -34,10 +34,25 @@ const CheckIn = () => {
 
       if (logError) throw logError;
 
-      // Trigger risk calculation
+      // 2. Trigger DB risk calculation
       await supabase.rpc('calculate_user_risk', { p_user_id: user.id });
+
+      // 3. Get active session and trigger AI evaluation
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await fetch('https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/evaluate-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            event: "daily_checkin"
+          })
+        });
+      }
       
-      showSuccess("Check-in completed. Your streak has been updated!");
+      showSuccess("Check-in completed. Your recovery state has been re-evaluated!");
       navigate('/home');
     } catch (error: any) {
       showError(error.message || "Failed to complete check-in");

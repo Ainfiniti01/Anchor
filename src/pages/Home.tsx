@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, ShieldAlert, X, Loader2, Sparkles } from 'lucide-react';
+import { Flame, MessageCircle, AlertCircle, TrendingUp, Clock, ShieldAlert, X, Loader2, Sparkles, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import MobileLayout from '@/components/MobileLayout';
@@ -15,6 +15,7 @@ const Home = () => {
   const [showBanner, setShowBanner] = useState(true);
   const [isVerified, setIsVerified] = useState(true);
   const [isCheckInDue, setIsCheckInDue] = useState(false);
+  const [nextCheckInString, setNextCheckInString] = useState<string>('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -27,9 +28,24 @@ const Home = () => {
           .eq('id', user.id)
           .single();
         
-        if (!error) {
+        if (!error && data) {
           setProfile(data);
-          if (data.next_check_in_at && new Date(data.next_check_in_at) <= new Date()) {
+          
+          if (data.next_check_in_at) {
+            const nextTime = new Date(data.next_check_in_at);
+            const now = new Date();
+            
+            if (nextTime <= now) {
+              setIsCheckInDue(true);
+            } else {
+              setIsCheckInDue(false);
+              // Build friendly schedule string
+              const isToday = nextTime.toDateString() === now.toDateString();
+              const timeString = nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              setNextCheckInString(isToday ? `Today at ${timeString}` : `${nextTime.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${timeString}`);
+            }
+          } else {
+            // Default check-in fallback
             setIsCheckInDue(true);
           }
         }
@@ -71,39 +87,39 @@ const Home = () => {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{getGreeting()}</h1>
             <p className="text-slate-500">Let's stay strong today.</p>
           </div>
-          <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-4 py-2 rounded-2xl flex items-center gap-2 font-bold">
-            <Flame size={20} />
+          <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-4 py-2 rounded-2xl flex items-center gap-2 font-bold shadow-sm">
+            <Flame size={20} className="animate-pulse" />
             <span>{profile?.current_streak || 0} Days</span>
           </div>
         </header>
 
         {isCheckInDue ? (
-          <Card className="p-6 bg-emerald-600 text-white border-none shadow-lg shadow-emerald-200 dark:shadow-none rounded-3xl animate-pulse">
+          <Card className="p-6 bg-emerald-600 text-white border-none shadow-lg shadow-emerald-100 dark:shadow-none rounded-3xl">
             <div className="flex justify-between items-start mb-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-emerald-100 text-sm font-bold uppercase tracking-wider">
-                  <Sparkles size={16} />
+                  <Sparkles size={16} className="animate-spin" style={{ animationDuration: '4s' }} />
                   <span>Anchor is waiting</span>
                 </div>
                 <h3 className="text-xl font-bold">Time for a check-in?</h3>
-                <p className="text-emerald-50 text-sm">You mentioned staying consistent earlier. How's it going?</p>
+                <p className="text-emerald-50 text-sm">Let's log your emotional state to keep your streak alive.</p>
               </div>
             </div>
-            <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold">
+            <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold shadow-sm">
               Check In Now
             </Button>
           </Card>
         ) : (
-          <Card className="p-6 bg-indigo-600 text-white border-none shadow-lg shadow-indigo-200 dark:shadow-none rounded-3xl">
+          <Card className="p-6 bg-indigo-600 text-white border-none shadow-lg shadow-indigo-100 dark:shadow-none rounded-3xl">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-indigo-100 text-sm font-medium">Next Check-in</p>
-                <h3 className="text-xl font-bold">Daily Reflection</h3>
+                <p className="text-indigo-100 text-sm font-medium uppercase tracking-wider">Next Scheduled</p>
+                <h3 className="text-xl font-bold mt-1">{nextCheckInString || 'Daily Reflection'}</h3>
               </div>
-              <Clock className="text-indigo-200" />
+              <Clock className="text-indigo-200 animate-pulse" />
             </div>
-            <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold">
-              Start Check-in
+            <Button onClick={() => navigate('/check-in')} className="w-full bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold shadow-sm">
+              Check In Early
             </Button>
           </Card>
         )}
