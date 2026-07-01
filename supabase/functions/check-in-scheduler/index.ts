@@ -33,11 +33,11 @@ serve(async (req) => {
       // 2. Generate personalized check-in message using Qwen
       const { data: memories } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
       
-      const qwenRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+      const qwenRes = await fetch("https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${qwenKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "qwen-plus",
+          model: "qwen3.7-max-2026-06-08",
           messages: [
             { role: "system", content: "You are Anchor. Generate a short, personalized check-in message (1 sentence) based on user memories. No generic greetings." },
             { role: "user", content: `User: ${user.display_name}. Memories: ${memories?.map(m => m.content).join('; ')}` }

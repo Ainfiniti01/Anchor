@@ -75,14 +75,14 @@ Return a JSON object with this EXACT structure:
       recent_reflections: logs.map(l => ({ mood: l.mood_score, urge: l.urge_level, text: l.notes }))
     };
 
-    const qwenRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+    const qwenRes = await fetch("https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions", {
       method: "POST",
       headers: { 
         "Authorization": `Bearer ${qwenKey}`, 
         "Content-Type": "application/json" 
       },
       body: JSON.stringify({
-        model: "qwen-plus",
+        model: "qwen3.7-max-2026-06-08",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Context data: ${JSON.stringify(userPayload)}` }

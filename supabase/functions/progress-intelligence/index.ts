@@ -50,7 +50,7 @@ serve(async (req) => {
       weekly_change: "calculating..." // Simplified for example
     };
 
-    // 2. REASON: Send structured metrics to Qwen-Plus
+    // 2. REASON: Send structured metrics to workspace Qwen model
     const systemPrompt = `
 You are the Anchor Behavioral Intelligence Engine.
 Model: Qwen-Plus (Alibaba Cloud)
@@ -58,11 +58,11 @@ Analyze these structured metrics and provide deep behavioral insights.
 Return JSON: { "insights": [], "reflection": "", "confidence": 0-100 }
 `;
 
-    const qwenRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+    const qwenRes = await fetch("https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${qwenKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "qwen-plus",
+        model: "qwen3.7-max-2026-06-08",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Metrics: ${JSON.stringify(metrics)}` }
