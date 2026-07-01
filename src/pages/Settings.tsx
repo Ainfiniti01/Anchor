@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, LogOut, Moon, Sun, ChevronLeft, Lock, Clock, Shield, KeyRound, ChevronRight, User, Palette, Sparkles, HelpCircle, Eye } from 'lucide-react';
+import { Bell, LogOut, Moon, Sun, ChevronLeft, Lock, Clock, Shield, KeyRound, ChevronRight, User, Palette, Sparkles, HelpCircle, Eye, VolumeX, AlertCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
@@ -17,12 +17,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Card } from '@/components/ui/card';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<any>(null);
-  const [notifications, setNotifications] = useState(true);
   
   // PIN security states
   const [pin, setPin] = useState('');
@@ -34,6 +34,7 @@ const Settings = () => {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editHabitType, setEditHabitType] = useState('');
+  const [customHabit, setCustomHabit] = useState('');
   const [editAiTone, setEditAiTone] = useState('');
   const [editGoal, setEditGoal] = useState('');
   const [goalMemoryId, setGoalMemoryId] = useState<string | null>(null);
@@ -48,6 +49,13 @@ const Settings = () => {
   // Info dialogs
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+
+  // Notification states
+  const [notifications, setNotifications] = useState(true);
+  const [checkInFrequency, setCheckInFrequency] = useState('Once per day');
+  const [notificationStyle, setNotificationStyle] = useState('Both');
+  const [quietHoursStart, setQuietHoursStart] = useState('22:00');
+  const [quietHoursEnd, setQuietHoursEnd] = useState('08:00');
 
   useEffect(() => {
     fetchProfile();
@@ -65,8 +73,29 @@ const Settings = () => {
       if (data) {
         setProfile(data);
         setEditDisplayName(data.display_name || '');
-        setEditHabitType(data.habit_type || '');
+        
+        const knownHabits = ['Porn Addiction', 'Substance Use', 'Social Media', 'Gaming'];
+        if (knownHabits.includes(data.habit_type || '')) {
+          setEditHabitType(data.habit_type || '');
+          setCustomHabit('');
+        } else if (data.habit_type) {
+          setEditHabitType('Other');
+          setCustomHabit(data.habit_type);
+        } else {
+          setEditHabitType('');
+          setCustomHabit('');
+        }
+
         setEditAiTone(data.ai_tone || 'Supportive Friend');
+        
+        // Parse notifications preferences
+        setNotifications(data.check_in_frequency !== 'none');
+        setCheckInFrequency(data.check_in_frequency || 'Once per day');
+
+        const prefs = data.behavioral_preferences || {};
+        setNotificationStyle(prefs.notification_style || 'Both');
+        setQuietHoursStart(prefs.quiet_hours?.start || '22:00');
+        setQuietHoursEnd(prefs.quiet_hours?.end || '08:00');
       }
 
       // Fetch user goal from memories
@@ -100,12 +129,14 @@ const Settings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User session not found");
 
+      const finalHabit = editHabitType === 'Other' ? customHabit : editHabitType;
+
       // Update Profile table
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           display_name: editDisplayName,
-          habit_type: editHabitType,
+          habit_type: finalHabit,
           ai_tone: editAiTone,
           updated_at: new Date().toISOString(),
         })
@@ -145,6 +176,39 @@ const Settings = () => {
       showError(err.message || "Failed to save profile changes");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  // Dynamically update and sync personalized notification properties
+  const handleUpdateNotifications = async (
+    isEnabled: boolean,
+    freq = checkInFrequency,
+    style = notificationStyle,
+    start = quietHoursStart,
+    end = quietHoursEnd
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const updatedFreq = isEnabled ? freq : 'none';
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          check_in_frequency: updatedFreq,
+          behavioral_preferences: {
+            notification_style: style,
+            quiet_hours: { start, end }
+          }
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      showSuccess("Notification preferences synchronized!");
+      fetchProfile();
+    } catch (err: any) {
+      showError("Failed to update notifications");
     }
   };
 
@@ -233,6 +297,19 @@ const Settings = () => {
     }
   };
 
+  // Generates discrete simulated notifications depending on style settings
+  const getSimulatedNotification = () => {
+    const goalMsg = editGoal ? `"${editGoal}"` : 'your big goals';
+    
+    if (notificationStyle === 'Random Encouragement') {
+      return `Take a breath. Remember what you're working towards: ${goalMsg}.`;
+    }
+    if (notificationStyle === 'Scheduled Reminders') {
+      return `Daily check-in scheduled. Stay consistent with your commitment today.`;
+    }
+    return `Your future self will thank you for the strength you show today. Care to do a quick reflection?`;
+  };
+
   return (
     <MobileLayout>
       <header className="bg-slate-900 dark:bg-indigo-950 p-6 pb-12 rounded-b-[40px] mb-6">
@@ -261,13 +338,13 @@ const Settings = () => {
               Focus Habit: <span className="text-indigo-600 dark:text-indigo-400">{profile?.habit_type || "None"}</span>
             </p>
             {editGoal && (
-              <p className="text-sm italic text-slate-500 mt-2 line-clamp-2">
+              <p className="text-sm italic text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">
                 "{editGoal}"
               </p>
             )}
             <Button 
               onClick={() => setIsProfileDialogOpen(true)}
-              className="mt-4 w-full h-11 bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold text-sm"
+              className="mt-4 w-full h-11 bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold text-sm text-white"
             >
               Edit Profile & Companion Style
             </Button>
@@ -351,22 +428,147 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Preferences */}
+        {/* Personalized Notifications Redesign */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
-            Preferences
+            Personalized Notifications
           </h3>
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-4 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-50 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
                   <Bell size={20} />
                 </div>
-                <span className="font-medium text-slate-700 dark:text-slate-200">Notifications</span>
+                <div>
+                  <span className="font-medium text-slate-700 dark:text-slate-200 block">Enable Notifications</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Discreetly protect your privacy</span>
+                </div>
               </div>
-              <Switch checked={notifications} onCheckedChange={setNotifications} />
+              <Switch 
+                checked={notifications} 
+                onCheckedChange={(checked) => {
+                  setNotifications(checked);
+                  handleUpdateNotifications(checked);
+                }} 
+              />
             </div>
-            
+
+            {notifications && (
+              <div className="space-y-4 pt-1 animate-in fade-in duration-200">
+                {/* Frequency Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Check-In Frequency</label>
+                  <Select 
+                    value={checkInFrequency} 
+                    onValueChange={(val) => {
+                      setCheckInFrequency(val);
+                      handleUpdateNotifications(true, val);
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                      <SelectValue placeholder="Choose frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Once per day">Once per day</SelectItem>
+                      <SelectItem value="Twice per day">Twice per day</SelectItem>
+                      <SelectItem value="Three times per day">Three times per day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Notification Style */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Notification Style</label>
+                  <Select 
+                    value={notificationStyle} 
+                    onValueChange={(val) => {
+                      setNotificationStyle(val);
+                      handleUpdateNotifications(true, checkInFrequency, val);
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                      <SelectValue placeholder="Style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Random Encouragement">Random Encouragement</SelectItem>
+                      <SelectItem value="Scheduled Reminders">Scheduled Reminders</SelectItem>
+                      <SelectItem value="Both">Both Styles</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Quiet Hours */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <VolumeX size={14} className="text-slate-400" />
+                    <label className="text-xs font-bold text-slate-400 uppercase">Quiet Hours</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-400 font-medium">Start Time</span>
+                      <Input 
+                        type="time" 
+                        value={quietHoursStart} 
+                        onChange={(e) => {
+                          setQuietHoursStart(e.target.value);
+                          handleUpdateNotifications(true, checkInFrequency, notificationStyle, e.target.value, quietHoursEnd);
+                        }}
+                        className="rounded-xl h-10 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-400 font-medium">End Time</span>
+                      <Input 
+                        type="time" 
+                        value={quietHoursEnd} 
+                        onChange={(e) => {
+                          setQuietHoursEnd(e.target.value);
+                          handleUpdateNotifications(true, checkInFrequency, notificationStyle, quietHoursStart, e.target.value);
+                        }}
+                        className="rounded-xl h-10 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notification Preview Card */}
+                <div className="pt-2 border-t border-slate-50 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 uppercase block mb-2">Notification Preview</span>
+                  <Card 
+                    onClick={() => navigate('/chat')}
+                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer border border-slate-100 dark:border-slate-800 transition-all shadow-sm space-y-1.5 relative overflow-hidden group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-indigo-600 rounded-md flex items-center justify-center text-white text-[10px] font-bold">⚓</div>
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Anchor Companion</span>
+                      </div>
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wide">Just Now</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed italic pr-4">
+                      {getSimulatedNotification()}
+                    </p>
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-slate-900">
+                      <span className="text-[9px] text-indigo-500 font-bold flex items-center gap-1 group-hover:underline">
+                        Tap to reply directly to Anchor
+                      </span>
+                    </div>
+                    <div className="absolute top-2 right-2 flex items-center gap-1 text-[8px] bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded-full font-bold uppercase text-indigo-600 dark:text-indigo-400">
+                      <AlertCircle size={8} /> Discreet Preview
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Color Palette Preferences */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
+            Display Preferences
+          </h3>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
@@ -430,7 +632,7 @@ const Settings = () => {
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
         <DialogContent className="rounded-3xl max-w-[340px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
               <User className="text-indigo-600" size={20} />
               Edit Profile
             </DialogTitle>
@@ -442,14 +644,14 @@ const Settings = () => {
                 placeholder="Full Name / Handle"
                 value={editDisplayName}
                 onChange={(e) => setEditDisplayName(e.target.value)}
-                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800"
+                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase">Focus Habit</label>
               <Select value={editHabitType} onValueChange={setEditHabitType}>
-                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 border-none">
+                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-850 border-none text-slate-900 dark:text-white">
                   <SelectValue placeholder="Select Focus Habit" />
                 </SelectTrigger>
                 <SelectContent>
@@ -462,10 +664,22 @@ const Settings = () => {
               </Select>
             </div>
 
+            {editHabitType === 'Other' && (
+              <div className="space-y-1 animate-in slide-in-from-top-1 duration-200">
+                <label className="text-xs font-bold text-slate-400 uppercase">Custom Habit Description</label>
+                <Input
+                  placeholder="Type your habit here"
+                  value={customHabit}
+                  onChange={(e) => setCustomHabit(e.target.value)}
+                  className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase">Companion Style</label>
               <Select value={editAiTone} onValueChange={setEditAiTone}>
-                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 border-none">
+                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-850 border-none text-slate-900 dark:text-white">
                   <SelectValue placeholder="Companion Style" />
                 </SelectTrigger>
                 <SelectContent>
@@ -485,14 +699,14 @@ const Settings = () => {
                 placeholder="e.g., Become a software engineer"
                 value={editGoal}
                 onChange={(e) => setEditGoal(e.target.value)}
-                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800"
+                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
 
             <Button 
               onClick={handleSaveProfile} 
               disabled={savingProfile}
-              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold mt-4"
+              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold mt-4 text-white"
             >
               {savingProfile ? "Saving..." : "Save Changes"}
             </Button>
@@ -504,10 +718,10 @@ const Settings = () => {
       <Dialog open={isPinDialogOpen} onOpenChange={setIsPinDialogOpen}>
         <DialogContent className="rounded-3xl max-w-[320px]">
           <DialogHeader>
-            <DialogTitle>{setupStep === 'create' ? 'Set Security PIN' : 'Confirm PIN'}</DialogTitle>
+            <DialogTitle className="text-slate-900 dark:text-white">{setupStep === 'create' ? 'Set Security PIN' : 'Confirm PIN'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {setupStep === 'create' 
                 ? 'Enter a 4-digit PIN to protect your sensitive data.' 
                 : 'Please re-enter your PIN to confirm.'}
@@ -516,7 +730,7 @@ const Settings = () => {
               type="password"
               maxLength={4}
               placeholder="0000"
-              className="text-center text-2xl tracking-[1em] h-14 rounded-xl bg-slate-50 dark:bg-slate-800"
+              className="text-center text-2xl tracking-[1em] h-14 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
               value={setupStep === 'create' ? pin : confirmPin}
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, '');
@@ -533,7 +747,7 @@ const Settings = () => {
                   handleSetPin();
                 }
               }} 
-              className="w-full h-12 rounded-xl bg-indigo-600"
+              className="w-full h-12 rounded-xl bg-indigo-600 text-white"
             >
               {setupStep === 'create' ? 'Next' : 'Enable PIN Lock'}
             </Button>
@@ -545,7 +759,7 @@ const Settings = () => {
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent className="rounded-3xl max-w-[320px]">
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
+            <DialogTitle className="text-slate-900 dark:text-white">Change Password</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-1">
@@ -553,7 +767,7 @@ const Settings = () => {
               <Input
                 type="password"
                 placeholder="••••••"
-                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800"
+                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
@@ -563,7 +777,7 @@ const Settings = () => {
               <Input
                 type="password"
                 placeholder="••••••"
-                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800"
+                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
@@ -571,7 +785,7 @@ const Settings = () => {
             <Button 
               onClick={handleChangePassword} 
               disabled={savingPassword}
-              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold"
+              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold text-white"
             >
               {savingPassword ? "Updating..." : "Update Password"}
             </Button>
@@ -580,71 +794,43 @@ const Settings = () => {
       </Dialog>
 
       {/* About Dialog */}
-<Dialog open={isAboutOpen} onOpenChange={setIsAboutOpen}>
-  <DialogContent className="rounded-3xl max-w-[320px]">
-    <DialogHeader>
-      <DialogTitle>About Anchor</DialogTitle>
-    </DialogHeader>
+      <Dialog open={isAboutOpen} onOpenChange={setIsAboutOpen}>
+        <DialogContent className="rounded-3xl max-w-[320px]">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 dark:text-white">About Anchor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p>
+              ⚓ <strong>Anchor</strong> is your private memory-powered accountability companion.
+            </p>
+            <p>
+              Unlike standard tracking apps, Anchor uses a high-performance memory agent powered by Alibaba Cloud Qwen-Max and DashScope to build deep, empathetic insights tailored directly to your personal recovery goals and triggers.
+            </p>
+            <p className="text-xs text-slate-400 mt-4">
+              Version 1.2.0 • Made with ❤️ for Global AI Hackathon
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-    <div className="space-y-3 py-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-      <p>
-        ⚓ <strong>Anchor</strong> is your private, memory-powered accountability companion.
-      </p>
+      {/* Privacy Policy Dialog */}
+      <Dialog open={isPrivacyOpen} onOpenChange={setIsPrivacyOpen}>
+        <DialogContent className="rounded-3xl max-w-[320px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 dark:text-white">Privacy & Terms</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <h4 className="font-bold text-slate-800 dark:text-slate-100">1. Data Storage</h4>
+            <p>All sensitive logs, reflection notes, and memories are stored securely within Supabase with strict Row-Level Security (RLS). Nobody except you has authorization to view your records.</p>
+            
+            <h4 className="font-bold text-slate-800 dark:text-slate-100">2. AI Encryption</h4>
+            <p>Your goals and experiences are compressed using a secure, weighted retrieval & decay engine. Generative models only analyze the minimum required context to support you.</p>
 
-      <p>
-        Unlike traditional habit trackers, Anchor uses long-term memory and
-        Alibaba Cloud&apos;s Qwen AI to provide personalized support based on
-        your goals, recovery journey, and meaningful conversations.
-      </p>
-
-      <p className="text-xs text-slate-400 mt-4">
-        Version 1.2.0 • Built for the Global AI Hackathon
-      </p>
-    </div>
-  </DialogContent>
-</Dialog>
-
-{/* Privacy Policy Dialog */}
-<Dialog open={isPrivacyOpen} onOpenChange={setIsPrivacyOpen}>
-  <DialogContent className="rounded-3xl max-w-[320px] max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>Privacy Policy</DialogTitle>
-    </DialogHeader>
-
-    <div className="space-y-3 py-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-      <h4 className="font-bold text-slate-800 dark:text-slate-100">
-        1. Data Protection
-      </h4>
-
-      <p>
-        Your logs, reflections, and personal data are securely stored in
-        Supabase and protected using Row-Level Security (RLS), helping ensure
-        that only you can access your records.
-      </p>
-
-      <h4 className="font-bold text-slate-800 dark:text-slate-100">
-        2. AI Processing
-      </h4>
-
-      <p>
-        Anchor uses Alibaba Cloud&apos;s Qwen AI together with a secure memory
-        system that prioritizes relevant information while gradually reducing
-        the influence of outdated context. Only the minimum information needed
-        is processed to provide personalized support.
-      </p>
-
-      <h4 className="font-bold text-slate-800 dark:text-slate-100">
-        3. App Security
-      </h4>
-
-      <p>
-        When App Lock is enabled, your PIN is securely hashed before storage
-        and is never saved in plain text, helping protect your account if
-        someone else gains access to your device.
-      </p>
-    </div>
-  </DialogContent>
-</Dialog>
+            <h4 className="font-bold text-slate-800 dark:text-slate-100">3. Local Safety</h4>
+            <p>Enabling App Lock protects your device in case someone else gets hold of it. Secure PIN hashing protects authorization vectors from brute force attempts.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MobileLayout>
   );
 };

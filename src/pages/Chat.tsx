@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronLeft, Info, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import MobileLayout from '@/components/MobileLayout';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,7 @@ const Chat = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetchChatHistory();
@@ -42,6 +43,14 @@ const Chat = () => {
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages, isTyping]);
+
+  // Handle auto-resizing of textarea to prevent horizontal scroll & ugly overflows
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [input]);
 
   const fetchChatHistory = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -148,6 +157,13 @@ const Chat = () => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
     <MobileLayout>
       <div className="flex flex-col h-[calc(100vh-80px)] bg-white dark:bg-slate-950">
@@ -175,7 +191,7 @@ const Chat = () => {
           ) : (
             messages.map((msg) => (
               <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
                   msg.role === 'user'
                     ? 'bg-indigo-600 text-white rounded-tr-none'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
@@ -217,19 +233,21 @@ const Chat = () => {
         </div>
 
         <div className="fixed bottom-20 w-full max-w-md bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 p-4 z-20">
-          <div className="flex gap-2">
-            <Input
+          <div className="flex gap-2 items-end">
+            <Textarea
+              ref={textareaRef}
+              rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={handleKeyDown}
               placeholder="Type a message..."
-              className="rounded-xl bg-slate-50 dark:bg-slate-900 border-none h-12 focus-visible:ring-indigo-600"
+              className="flex-1 min-h-[44px] max-h-[120px] rounded-xl bg-slate-50 dark:bg-slate-900 border-none resize-none py-3 px-4 focus-visible:ring-indigo-600 text-slate-900 dark:text-white"
               disabled={isTyping}
             />
             <Button 
               onClick={handleSend}
               disabled={isTyping || !input.trim()}
-              className="w-12 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 p-0 shrink-0"
+              className="w-12 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 p-0 shrink-0 text-white"
             >
               <Send size={20} />
             </Button>

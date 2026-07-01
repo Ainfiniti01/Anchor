@@ -148,7 +148,7 @@ const SetupProfile = () => {
   const step = steps[currentStep];
 
   return (
-    <div className="min-h-screen bg-white p-6 flex flex-col max-w-md mx-auto">
+    <div className="min-h-screen bg-white dark:bg-slate-950 p-6 flex flex-col max-w-md mx-auto">
       <div className="flex justify-between items-center mb-8">
         <button onClick={handleBack} className={`text-slate-400 hover:text-slate-600 ${currentStep === 0 ? 'invisible' : ''}`}>
           <ChevronLeft size={24} />
@@ -158,7 +158,7 @@ const SetupProfile = () => {
             <div 
               key={i} 
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === currentStep ? 'w-8 bg-indigo-600' : 'w-2 bg-slate-100'
+                i === currentStep ? 'w-8 bg-indigo-600' : 'w-2 bg-slate-100 dark:bg-slate-800'
               }`} 
             />
           ))}
@@ -173,8 +173,8 @@ const SetupProfile = () => {
           exit={{ x: -20, opacity: 0 }}
           className="flex-1 flex flex-col"
         >
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">{step.title}</h2>
-          {step.description && <p className="text-slate-500 mb-8">{step.description}</p>}
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{step.title}</h2>
+          {step.description && <p className="text-slate-500 dark:text-slate-400 mb-8">{step.description}</p>}
 
           <div className="space-y-3 mt-4">
             {step.type === 'input' ? (
@@ -182,7 +182,7 @@ const SetupProfile = () => {
                 <Target className="absolute left-4 top-5 text-indigo-600" size={20} />
                 <Input
                   placeholder={step.placeholder}
-                  className="h-16 pl-12 rounded-2xl bg-slate-50 border-slate-100 focus:border-indigo-600 text-lg"
+                  className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 focus:border-indigo-600 text-lg text-slate-900 dark:text-white placeholder:text-slate-400"
                   value={goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
                 />
@@ -196,11 +196,12 @@ const SetupProfile = () => {
                 return (
                   <div key={option} className="space-y-3">
                     <button
+                      type="button"
                       onClick={() => toggleOption(option)}
                       className={`w-full p-5 rounded-2xl text-left border-2 transition-all flex justify-between items-center ${
                         isSelected 
-                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
-                          : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400' 
+                          : 'border-slate-100 dark:border-slate-900 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-slate-200 dark:hover:border-slate-800'
                       }`}
                     >
                       <span className="font-medium">{option}</span>
@@ -211,7 +212,7 @@ const SetupProfile = () => {
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="px-1">
                         <Input
                           placeholder="Type your habit here"
-                          className="h-14 rounded-xl bg-slate-50 border-slate-200"
+                          className="h-14 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400"
                           value={customHabit}
                           onChange={(e) => setCustomHabit(e.target.value)}
                         />
@@ -229,7 +230,7 @@ const SetupProfile = () => {
         <Button 
           onClick={handleNext} 
           disabled={loading || (step.type === 'single' && !selections[step.id]) || (step.id === 'habit_type' && !isOtherValid) || (step.id === 'goals' && !isGoalValid)}
-          className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
+          className="w-full h-14 rounded-2xl text-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white"
         >
           {loading ? <Loader2 className="animate-spin" /> : (
             <>
