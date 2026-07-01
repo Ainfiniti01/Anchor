@@ -341,6 +341,28 @@ Return valid JSON only.
       await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
     }
 
+    // NEW: TRIGGER EVALUATION ON CHAT EVENT
+    try {
+      console.log(`[${functionName}] Triggering evaluate-user for chat event`);
+      const evalRes = await fetch("https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/evaluate-user", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          event: "chat"
+        })
+      });
+      if (!evalRes.ok) {
+        console.warn(`[${functionName}] evaluate-user failed:`, await evalRes.text());
+      } else {
+        console.log(`[${functionName}] evaluate-user triggered successfully`);
+      }
+    } catch (evalError: any) {
+      console.error(`[${functionName}] Failed to call evaluate-user:`, evalError.message);
+    }
+
     return new Response(JSON.stringify({ reply: result.reply }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
