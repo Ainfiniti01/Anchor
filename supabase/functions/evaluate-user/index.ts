@@ -35,7 +35,7 @@ serve(async (req) => {
     const { event } = await req.json()
     console.log(`[${functionName}] Evaluating user ${user.id} triggered by event: ${event}`);
 
-    // Fetch user profile and recent logs to compile a comprehensive picture
+    // Fetch user profile, recent urges and recent logs
     const [profileRes, urgesRes, logsRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("urge_logs").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
@@ -51,7 +51,12 @@ serve(async (req) => {
 You are the Anchor Recovery & Behavioral Evaluation Engine.
 Model: Qwen-Plus (Alibaba Cloud)
 
-Analyze the user's focus habit, current streak, recent urges, and logs to evaluate their recovery state.
+Analyze the user's focus habit, current streak, recent urges, and wellness check-ins to evaluate their recovery state.
+
+CRITICAL LOGIC RULE:
+- Wellness check-ins are recorded as logs with urge_level = 0. These are NOT urges. They indicate healthy days and should raise the recovery_score significantly and lower risk_score.
+- Urges are recorded in urge_logs with intensity 1-5. Successful resistance should also raise the recovery score.
+- Relapse events represent slips. They drop recovery score.
 
 Return a JSON object with this EXACT structure:
 {
@@ -71,7 +76,9 @@ Return a JSON object with this EXACT structure:
       best_streak: profile.best_streak_days,
       triggers: profile.triggers,
       event_trigger: event,
+      // Pass distinct urges experienced (these are the true urge events)
       recent_urges: urges.map(u => ({ intensity: u.intensity, resisted: u.resisted, time: u.created_at })),
+      // Pass distinct behavioral reflections (checks where urge_level is 0 are wellness checks)
       recent_reflections: logs.map(l => ({ mood: l.mood_score, urge: l.urge_level, text: l.notes }))
     };
 

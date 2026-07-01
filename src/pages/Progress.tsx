@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card } from '@/components/ui/card';
-import { Flame, Trophy, Activity, Zap, ChevronLeft, Loader2, ShieldCheck, Target, Award, Sparkles, CheckCircle } from 'lucide-react';
+import { Flame, Trophy, Activity, Zap, ChevronLeft, Loader2, ShieldCheck, Target, HeartCheck, Ban } from 'lucide-react';
 import MobileLayout from '@/components/MobileLayout';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,9 +14,13 @@ const Progress = () => {
   const [profile, setProfile] = useState<any>(null);
   const [urgeLogs, setUrgeLogs] = useState<any[]>([]);
   const [relapseLogs, setRelapseLogs] = useState<any[]>([]);
+  const [behavioralLogs, setBehavioralLogs] = useState<any[]>([]);
   const [metrics, setMetrics] = useState({
     avgUrgesPerDay: 0,
     totalResisted: 0,
+    totalUrges: 0,
+    wellnessChecks: 0,
+    relapseCount: 0,
     weeklyUrgesCount: 0,
     weeklyChange: "Stable"
   });
@@ -27,11 +31,12 @@ const Progress = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch profile, urge logs, and relapse logs in parallel
-        const [profileRes, urgesRes, relapseRes] = await Promise.all([
+        // Fetch profile, urge logs, relapse logs, and behavioral logs in parallel
+        const [profileRes, urgesRes, relapseRes, behavioralRes] = await Promise.all([
           supabase.from('profiles').select('*').eq('id', user.id).single(),
           supabase.from('urge_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('relapse_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+          supabase.from('relapse_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('behavioral_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
         ]);
 
         if (profileRes.data) {
@@ -40,12 +45,20 @@ const Progress = () => {
 
         const urges = urgesRes.data || [];
         const relapses = relapseRes.data || [];
+        const behavior = behavioralRes.data || [];
 
         setUrgeLogs(urges);
         setRelapseLogs(relapses);
+        setBehavioralLogs(behavior);
+
+        // Compute Distinct Wellness Checks (from behavioral logs where urge_level is 0)
+        const wellnessChecks = behavior.filter(b => b.urge_level === 0).length;
 
         // Calculate dynamic metrics
+        const totalUrges = urges.length;
         const totalResisted = urges.filter(u => u.resisted).length;
+        const relapseCount = relapses.length;
+
         const now = new Date();
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         
@@ -70,6 +83,9 @@ const Progress = () => {
         setMetrics({
           avgUrgesPerDay,
           totalResisted,
+          totalUrges,
+          wellnessChecks,
+          relapseCount,
           weeklyUrgesCount,
           weeklyChange
         });
@@ -158,6 +174,38 @@ const Progress = () => {
           </Card>
         </div>
 
+        {/* Distinct Statistics Dashboard */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">
+            Recovery Metrics
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="p-4 rounded-2xl bg-white dark:bg-slate-900 border-none shadow-sm space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Days Checked In</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{metrics.wellnessChecks}</p>
+              <p className="text-[10px] text-emerald-600 font-medium">Wellness reported</p>
+            </Card>
+
+            <Card className="p-4 rounded-2xl bg-white dark:bg-slate-900 border-none shadow-sm space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Urges Experienced</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{metrics.totalUrges}</p>
+              <p className="text-[10px] text-indigo-600 font-medium">Distinct events</p>
+            </Card>
+
+            <Card className="p-4 rounded-2xl bg-white dark:bg-slate-900 border-none shadow-sm space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Urges Resisted</p>
+              <p className="text-2xl font-bold text-emerald-600">{metrics.totalResisted}</p>
+              <p className="text-[10px] text-emerald-600 font-medium">Strengthened defense</p>
+            </Card>
+
+            <Card className="p-4 rounded-2xl bg-white dark:bg-slate-900 border-none shadow-sm space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Relapses</p>
+              <p className="text-2xl font-bold text-red-600">{metrics.relapseCount}</p>
+              <p className="text-[10px] text-red-500 font-medium">Reset triggers</p>
+            </Card>
+          </div>
+        </div>
+
         {/* Weekly Urge Chart */}
         <Card className="p-6 rounded-3xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
@@ -206,18 +254,6 @@ const Progress = () => {
           </div>
         </Card>
 
-        {/* Extra metrics */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Resisted</p>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">{metrics.totalResisted} urges</p>
-          </Card>
-          <Card className="p-4 rounded-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Avg Urges / Day</p>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">{metrics.avgUrgesPerDay}</p>
-          </Card>
-        </div>
-
         {/* AI Insight Engine Section */}
         <Card className="p-6 rounded-3xl border-none bg-slate-900 dark:bg-indigo-950 text-white space-y-4 shadow-md">
           <div className="flex items-center gap-2 text-emerald-400">
@@ -237,8 +273,6 @@ const Progress = () => {
           </div>
         </Card>
 
-        
-
         {/* AI Reflection Prompter */}
         <Card className="p-6 rounded-3xl border-none bg-indigo-50 dark:bg-indigo-900/20 space-y-3 shadow-sm">
           <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
@@ -249,8 +283,6 @@ const Progress = () => {
             {profile?.reflection_prompt || "What is one small win you noticed in your behavior this week?"}
           </p>
         </Card>
-
-        
       </div>
     </MobileLayout>
   );
