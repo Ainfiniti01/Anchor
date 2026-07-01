@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { Card } from '@/components/ui/card';
 
+// Import the specific notification audio asset using Vite asset bundling
+import chimeAudioFile from '../../assets/sounds/dragon-studio-notification-sound-effect-372475.mp3';
+
 const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -228,11 +231,11 @@ const Settings = () => {
   const playNotificationSound = () => {
     try {
       if (!audioRef.current) {
-        audioRef.current = new Audio('/notification.mp3');
+        audioRef.current = new Audio(chimeAudioFile);
       }
       audioRef.current.volume = 0.5;
       audioRef.current.play().catch(() => {
-        // Fallback tone if the file doesn't exist yet
+        // Fallback tone if the browser blocks immediate audio play
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -247,7 +250,7 @@ const Settings = () => {
         osc.stop(ctx.currentTime + 0.3);
       });
     } catch (e) {
-      console.warn("Audio Context beep error:", e);
+      console.warn("Audio play error:", e);
     }
   };
 
@@ -511,10 +514,10 @@ const Settings = () => {
                     <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
                       <SelectValue placeholder="Choose frequency" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Once per day">Once per day</SelectItem>
-                      <SelectItem value="Twice per day">Twice per day</SelectItem>
-                      <SelectItem value="Three times per day">Three times per day</SelectItem>
+                    <SelectContent className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-100 dark:border-slate-800">
+                      <SelectItem value="Once per day" className="text-slate-900 dark:text-white">Once per day</SelectItem>
+                      <SelectItem value="Twice per day" className="text-slate-900 dark:text-white">Twice per day</SelectItem>
+                      <SelectItem value="Three times per day" className="text-slate-900 dark:text-white">Three times per day</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -531,10 +534,10 @@ const Settings = () => {
                     <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
                       <SelectValue placeholder="Style" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Random Encouragement">Random Encouragement</SelectItem>
-                      <SelectItem value="Scheduled Reminders">Scheduled Reminders</SelectItem>
-                      <SelectItem value="Both">Both Styles</SelectItem>
+                    <SelectContent className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-100 dark:border-slate-800">
+                      <SelectItem value="Random Encouragement" className="text-slate-900 dark:text-white">Random Encouragement</SelectItem>
+                      <SelectItem value="Scheduled Reminders" className="text-slate-900 dark:text-white">Scheduled Reminders</SelectItem>
+                      <SelectItem value="Both" className="text-slate-900 dark:text-white">Both Styles</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
