@@ -113,6 +113,22 @@ const SetupProfile = () => {
         });
       }
 
+      // Trigger initial AI evaluation to instantly generate a recovery score
+      try {
+        if (session) {
+          await fetch('https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/evaluate-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ event: "setup_complete" })
+          });
+        }
+      } catch (err) {
+        console.warn("Initial evaluation error:", err);
+      }
+
       showSuccess("Profile setup complete!");
       navigate('/home');
     }
