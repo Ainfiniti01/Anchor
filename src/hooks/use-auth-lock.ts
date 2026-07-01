@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 export function useAuthLock() {
   const location = useLocation();
   const [isLocked, setIsLocked] = useState(false);
-  const [lastActive, setLastActive] = useState<number>(Date.now());
+  const lastActiveRef = useRef<number>(Date.now());
   const [config, setConfig] = useState<{ enabled: boolean; timeout: number }>({
     enabled: false,
     timeout: 0
@@ -40,15 +40,8 @@ export function useAuthLock() {
       
       setConfig({
         enabled: isPinEnabled,
-        timeout: profile.auto_lock_timeout || 0
+        timeout: profile.auto_lock_timeout !== undefined ? profile.auto_lock_timeout : 0
       });
-      
-      // Only lock if PIN is enabled, a PIN actually exists, AND we are NOT on a safe path
-      if (isPinEnabled && !isSafePath) {
-        setIsLocked(true);
-      } else {
-        setIsLocked(false);
-      }
     } else {
       setIsLocked(false);
     }
@@ -58,29 +51,63 @@ export function useAuthLock() {
     fetchConfig();
   }, [fetchConfig]);
 
+  // Activity listeners to track real interaction and auto-lock after configured duration
   useEffect(() => {
     if (!config.enabled || isSafePath) {
-      if (isSafePath) setIsLocked(false);
       return;
     }
 
-    const handleStateChange = () => {
+    const updateActivity = () => {
+      lastActiveRef.current = Date.now();
+    };
+
+    // User interaction events
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('mousedown', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+    window.addEventListener('scroll', updateActivity);
+
+    // Periodic check for inactivity
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = (now - lastActiveRef.current) / 1000;
+      if (elapsed > config.timeout) {
+        setIsLocked(true);
+      }
+    }, 5000);
+
+    // App hidden / background checking
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
-        const elapsed = (now - lastActive) / 1000;
+        const elapsed = (now - lastActiveRef.current) / 1000;
         if (elapsed > config.timeout) {
           setIsLocked(true);
         }
       } else {
-        setLastActive(Date.now());
+        // Record the background time
+        lastActiveRef.current = Date.now();
       }
     };
 
-    document.addEventListener('visibilitychange', handleStateChange);
-    return () => document.removeEventListener('visibilitychange', handleStateChange);
-  }, [config, lastActive, isSafePath]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  const unlock = () => setIsLocked(false);
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('mousedown', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [config.enabled, config.timeout, isSafePath]);
+
+  const unlock = () => {
+    lastActiveRef.current = Date.now();
+    setIsLocked(false);
+  };
 
   return { isLocked, unlock, config, refreshConfig: fetchConfig };
 }
