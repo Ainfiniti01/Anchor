@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Bell, LogOut, Moon, Sun, ChevronLeft, Lock, Clock, Shield, KeyRound, ChevronRight, User, Palette, Sparkles, HelpCircle, Eye, VolumeX, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bell, LogOut, Moon, Sun, ChevronLeft, Lock, Clock, Shield, KeyRound, ChevronRight, User, Palette, Sparkles, HelpCircle, Eye, VolumeX, AlertCircle, Volume2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import MobileLayout from '@/components/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from 'react-router-dom';
 import { showSuccess, showError } from '@/utils/toast';
@@ -57,6 +58,9 @@ const Settings = () => {
   const [quietHoursStart, setQuietHoursStart] = useState('22:00');
   const [quietHoursEnd, setQuietHoursEnd] = useState('08:00');
 
+  // Audio elements
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -89,8 +93,11 @@ const Settings = () => {
         setEditAiTone(data.ai_tone || 'Supportive Friend');
         
         // Parse notifications preferences
-        setNotifications(data.check_in_frequency !== 'none');
-        setCheckInFrequency(data.check_in_frequency || 'Once per day');
+        const isNotifOn = data.check_in_frequency !== 'none' && data.check_in_frequency !== null;
+        setNotifications(isNotifOn);
+        if (isNotifOn) {
+          setCheckInFrequency(data.check_in_frequency || 'Once per day');
+        }
 
         const prefs = data.behavioral_preferences || {};
         setNotificationStyle(prefs.notification_style || 'Both');
@@ -205,11 +212,49 @@ const Settings = () => {
         .eq('id', user.id);
 
       if (error) throw error;
-      showSuccess("Notification preferences synchronized!");
-      fetchProfile();
+      showSuccess("Notification settings synchronized!");
+      
+      // Update local state cleanly
+      setNotifications(isEnabled);
+      setCheckInFrequency(freq);
+      setNotificationStyle(style);
+      setQuietHoursStart(start);
+      setQuietHoursEnd(end);
     } catch (err: any) {
       showError("Failed to update notifications");
     }
+  };
+
+  const playNotificationSound = () => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/notification.mp3');
+      }
+      audioRef.current.volume = 0.5;
+      audioRef.current.play().catch(() => {
+        // Fallback tone if the file doesn't exist yet
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5 note
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      });
+    } catch (e) {
+      console.warn("Audio Context beep error:", e);
+    }
+  };
+
+  const handlePreviewClick = () => {
+    playNotificationSound();
+    showSuccess("Simulating notification preview chime!");
+    navigate('/chat');
   };
 
   const handleChangePassword = async () => {
@@ -383,7 +428,7 @@ const Settings = () => {
                     value={profile?.auto_lock_timeout?.toString() || "0"} 
                     onValueChange={handleUpdateTimeout}
                   >
-                    <SelectTrigger className="w-[120px] h-9 rounded-lg border-slate-200">
+                    <SelectTrigger className="w-[120px] h-9 rounded-lg border-slate-200 text-slate-900 dark:text-white">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
@@ -447,7 +492,6 @@ const Settings = () => {
               <Switch 
                 checked={notifications} 
                 onCheckedChange={(checked) => {
-                  setNotifications(checked);
                   handleUpdateNotifications(checked);
                 }} 
               />
@@ -461,11 +505,10 @@ const Settings = () => {
                   <Select 
                     value={checkInFrequency} 
                     onValueChange={(val) => {
-                      setCheckInFrequency(val);
                       handleUpdateNotifications(true, val);
                     }}
                   >
-                    <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                    <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
                       <SelectValue placeholder="Choose frequency" />
                     </SelectTrigger>
                     <SelectContent>
@@ -482,11 +525,10 @@ const Settings = () => {
                   <Select 
                     value={notificationStyle} 
                     onValueChange={(val) => {
-                      setNotificationStyle(val);
                       handleUpdateNotifications(true, checkInFrequency, val);
                     }}
                   >
-                    <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                    <SelectTrigger className="w-full h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
                       <SelectValue placeholder="Style" />
                     </SelectTrigger>
                     <SelectContent>
@@ -510,7 +552,6 @@ const Settings = () => {
                         type="time" 
                         value={quietHoursStart} 
                         onChange={(e) => {
-                          setQuietHoursStart(e.target.value);
                           handleUpdateNotifications(true, checkInFrequency, notificationStyle, e.target.value, quietHoursEnd);
                         }}
                         className="rounded-xl h-10 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200"
@@ -522,7 +563,6 @@ const Settings = () => {
                         type="time" 
                         value={quietHoursEnd} 
                         onChange={(e) => {
-                          setQuietHoursEnd(e.target.value);
                           handleUpdateNotifications(true, checkInFrequency, notificationStyle, quietHoursStart, e.target.value);
                         }}
                         className="rounded-xl h-10 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200"
@@ -535,7 +575,7 @@ const Settings = () => {
                 <div className="pt-2 border-t border-slate-50 dark:border-slate-800">
                   <span className="text-xs font-bold text-slate-400 uppercase block mb-2">Notification Preview</span>
                   <Card 
-                    onClick={() => navigate('/chat')}
+                    onClick={handlePreviewClick}
                     className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer border border-slate-100 dark:border-slate-800 transition-all shadow-sm space-y-1.5 relative overflow-hidden group"
                   >
                     <div className="flex items-center justify-between">
@@ -543,7 +583,9 @@ const Settings = () => {
                         <div className="w-5 h-5 bg-indigo-600 rounded-md flex items-center justify-center text-white text-[10px] font-bold">⚓</div>
                         <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Anchor Companion</span>
                       </div>
-                      <span className="text-[9px] text-slate-400 uppercase tracking-wide">Just Now</span>
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                        <Volume2 size={10} className="text-indigo-500" /> Tap to hear chime & reply
+                      </span>
                     </div>
                     <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed italic pr-4">
                       {getSimulatedNotification()}
@@ -651,15 +693,15 @@ const Settings = () => {
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase">Focus Habit</label>
               <Select value={editHabitType} onValueChange={setEditHabitType}>
-                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-850 border-none text-slate-900 dark:text-white">
+                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 border-none text-slate-900 dark:text-white">
                   <SelectValue placeholder="Select Focus Habit" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Porn Addiction">Porn Addiction</SelectItem>
-                  <SelectItem value="Substance Use">Substance Use</SelectItem>
-                  <SelectItem value="Social Media">Social Media</SelectItem>
-                  <SelectItem value="Gaming">Gaming</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                <SelectContent className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-100 dark:border-slate-800">
+                  <SelectItem value="Porn Addiction" className="text-slate-900 dark:text-white">Porn Addiction</SelectItem>
+                  <SelectItem value="Substance Use" className="text-slate-900 dark:text-white">Substance Use</SelectItem>
+                  <SelectItem value="Social Media" className="text-slate-900 dark:text-white">Social Media</SelectItem>
+                  <SelectItem value="Gaming" className="text-slate-900 dark:text-white">Gaming</SelectItem>
+                  <SelectItem value="Other" className="text-slate-900 dark:text-white">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -679,13 +721,13 @@ const Settings = () => {
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase">Companion Style</label>
               <Select value={editAiTone} onValueChange={setEditAiTone}>
-                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-850 border-none text-slate-900 dark:text-white">
+                <SelectTrigger className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 border-none text-slate-900 dark:text-white">
                   <SelectValue placeholder="Companion Style" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Supportive Friend">Supportive Friend</SelectItem>
-                  <SelectItem value="Neutral Companion">Neutral Companion</SelectItem>
-                  <SelectItem value="Accountability Coach">Accountability Coach</SelectItem>
+                <SelectContent className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-100 dark:border-slate-800">
+                  <SelectItem value="Supportive Friend" className="text-slate-900 dark:text-white">Supportive Friend</SelectItem>
+                  <SelectItem value="Neutral Companion" className="text-slate-900 dark:text-white">Neutral Companion</SelectItem>
+                  <SelectItem value="Accountability Coach" className="text-slate-900 dark:text-white">Accountability Coach</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -695,11 +737,11 @@ const Settings = () => {
                 <Sparkles size={12} className="text-amber-500" />
                 Recovery Goal
               </label>
-              <Input
+              <Textarea
                 placeholder="e.g., Become a software engineer"
                 value={editGoal}
                 onChange={(e) => setEditGoal(e.target.value)}
-                className="rounded-xl h-11 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                className="rounded-xl min-h-[80px] bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-100 dark:border-slate-800 resize-none py-2.5"
               />
             </div>
 
