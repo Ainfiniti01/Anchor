@@ -94,6 +94,9 @@ F --> G[Memory Engine]
 F --> H[Behavioral Analytics]
 F --> I[Recovery Dashboard]
 ```
+
+---
+
 ##⚙️ Tech Stack
 
 Layer	Technology
@@ -107,6 +110,8 @@ AI	Alibaba Cloud Qwen-Max
 API	DashScope Compatible API
 Deployment	Vercel
 Memory	Custom MemoryAgent Engine
+
+---
 
 ##🚀 AI Pipeline
 User Action
@@ -129,6 +134,8 @@ Behavior Evaluation
      ▼
 Dashboard Updates
 
+---
+
 ##📸 Screenshots
 
 Add application screenshots here.
@@ -140,6 +147,8 @@ Urge Logger
 Progress Dashboard
 Settings
 
+---
+
 ##☁ Alibaba Cloud Integration
 
 Anchor uses Alibaba Cloud's Qwen-Max through the DashScope-compatible API.
@@ -150,6 +159,7 @@ https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/
 
 All AI conversations, behavioral evaluations, and memory reasoning are powered by Qwen-Max running on Alibaba Cloud.
 
+---
 
 ##🔒 Security
 Row-Level Security (RLS)
@@ -157,6 +167,8 @@ Secure authentication
 Protected Edge Functions
 Memory isolation per user
 Encrypted API communication
+
+---
 
 ##📄 License
 
