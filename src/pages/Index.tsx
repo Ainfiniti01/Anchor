@@ -2,8 +2,8 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Anchor } from 'lucide-react';
 import { motion } from 'framer-motion';
+import brandLogo from '../../assets/images/createimg-ai.png';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -23,8 +23,12 @@ const Index = () => {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="flex flex-col items-center"
       >
-        <div className="w-24 h-24 bg-white/20 rounded-3xl flex items-center justify-center mb-6 backdrop-blur-sm">
-          <Anchor size={48} className="text-white" />
+        <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl overflow-hidden p-2">
+          <img 
+            src={brandLogo} 
+            alt="Anchor Logo" 
+            className="w-full h-full object-contain"
+          />
         </div>
         <h1 className="text-4xl font-bold tracking-tight">Anchor</h1>
         <p className="mt-2 text-indigo-100 font-medium">Your AI Companion</p>

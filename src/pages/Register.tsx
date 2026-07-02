@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, Loader2, UserPlus, User, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Loader2, User, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
+import brandLogo from '../../assets/images/createimg-ai.png';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -92,8 +93,8 @@ const Register = () => {
     <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-white mb-8">
-          <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mb-4 backdrop-blur-sm">
-            <UserPlus size={40} />
+          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-xl overflow-hidden p-2">
+            <img src={brandLogo} alt="Anchor" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl font-bold">Create Account</h1>
           <p className="text-indigo-100">Start your recovery journey today</p>

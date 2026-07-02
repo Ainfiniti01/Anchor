@@ -1,8 +1,10 @@
-# ⚓ Anchor — MemoryAgent
+# ⚓ Anchor — Behavioral MemoryAgent
 
-**A Memory-Powered AI Accountability Companion built with Alibaba Cloud Qwen-Max.**
+**A Private, Memory-Powered Accountability Companion built with Alibaba Cloud Qwen-Max.**
 
-Anchor helps people build healthier habits by combining long-term memory, behavioral learning, and adaptive AI support. Instead of treating every conversation independently, Anchor remembers meaningful experiences, learns from user behavior, and provides personalized guidance that evolves over time.
+![Anchor Logo](assets/images/createimg-ai.png)
+
+Anchor helps people regain control over their habits by combining long-term behavioral memory, real-time risk evaluation, and adaptive AI support. Unlike standard tracking apps, Anchor distinguishes between staying well, experiencing an urge, and resisting challenges.
 
 ---
 
@@ -10,168 +12,65 @@ Anchor helps people build healthier habits by combining long-term memory, behavi
 
 **Track:** MemoryAgent
 
-Anchor demonstrates how persistent AI memory can create more supportive, context-aware, and personalized user experiences.
+Anchor demonstrates how persistent AI memory can create a more psychologically accurate and supportive recovery experience.
 
 ---
 
 ## ✨ Features
 
-- 🧠 Persistent cross-session memory
-- 🤖 AI-powered accountability conversations
-- 📈 Recovery dashboard with live progress analytics
-- 💬 Intelligent chat with contextual memory retrieval
-- 🔥 Streak and wellness tracking
-- 📝 Daily emotional check-ins
-- ⚡ Urge logging and relapse tracking
-- 🎯 Personalized AI insights and recommendations
-- 🔒 Secure authentication with Row-Level Security
-- ⚙️ Customizable AI personality and notification preferences
+- 🧠 **Persistent Behavioral Memory:** Remembers goals, triggers, and identity statements across sessions.
+- ⚓ **Redefined Urge Logging:** Distinguishes between wellness check-ins ("No urge") and actual urge events (Intensity 1-5).
+- 🤖 **Qwen-Max Intelligence:** Powered by Alibaba Cloud’s high-performance models via the DashScope API.
+- 📈 **Segregated Metrics:** Separate tracking for Days Checked In, Urges Experienced, Urges Resisted, and Relapses.
+- 🔒 **Security-First Design:** Features an inactivity-based PIN Lock and strict Row-Level Security (RLS).
+- 🔔 **Discreet Support:** Custom notification chimes and personalized companion styles (Supportive, Neutral, or Coaching).
+
+---
+
+## 🏗️ Technical Architecture
+
+Anchor uses a **Tri-Stage Intelligence Loop**:
+
+1. **Log Collection:** User logs wellness or urges via a redefined logic gate.
+2. **Behavioral Reasoning:** Supabase Edge Functions (Qwen-Max) analyze the logs, factoring in intensity, frequency, and time of day.
+3. **State Synthesis:** The AI updates the user's `recovery_score` and `risk_level`, providing a fresh "Weekly Insight" and "Recommended Action" on the dashboard.
 
 ---
 
 ## 🧠 MemoryAgent Implementation
 
-Anchor satisfies the MemoryAgent requirements through four core capabilities.
+Anchor satisfies the MemoryAgent requirements through four core capabilities:
 
 ### Persistent Memory
-
-The AI remembers:
-
-- Goals
-- Triggers
-- Identity statements
-- Preferences
-- Achievements
-- Relationships
-- Coping strategies
-- Personal experiences
-
-These memories persist across conversations and sessions.
+The AI remembers goals, triggers, and achievements. These are stored in `user_memories` with importance scores.
 
 ### Intelligent Retrieval
+Anchor retrieves only the most relevant memories for chat context using a custom RAG-style prioritization engine.
 
-Rather than sending every memory to the LLM, Anchor retrieves only the most relevant memories using:
-
-- Importance score
-- Confidence score
-- Reinforcement frequency
-- Recency weighting
-- Memory decay
-
-This keeps conversations accurate, efficient, and context-aware.
-
-### Memory Reinforcement
-
-When users naturally confirm previous information, memories become stronger over time.
-
-Less useful memories gradually decay, while important identity memories remain permanent.
-
-### Behavioral Learning
-
-Anchor continuously adapts using:
-
-- Daily check-ins
-- Wellness logs
-- Urge logs
-- Relapse history
-- Conversation patterns
-- Recovery progress
-
-The AI adjusts both recommendations and conversation style based on user behavior.
+### Memory Reinforcement & Decay
+Memories strengthen when confirmed by the user and gradually decay if they are no longer relevant to the user's current behavioral patterns.
 
 ---
 
-## 🏗 Architecture
+## 🛠️ Tech Stack
 
-```mermaid
-graph TD
-A[React + TypeScript] --> B[Supabase Authentication]
-A --> C[Supabase Edge Functions]
-C --> D[Alibaba Cloud DashScope API]
-D --> E[Qwen-Max]
-C --> F[Supabase PostgreSQL]
-F --> G[Memory Engine]
-F --> H[Behavioral Analytics]
-F --> I[Recovery Dashboard]
-```
+- **Frontend:** React + TypeScript + Tailwind CSS
+- **Database/Auth:** Supabase (PostgreSQL + RLS)
+- **AI Engine:** Alibaba Cloud Qwen-Max (DashScope Workspace Endpoint)
+- **Deployment:** Vercel
 
 ---
 
-##⚙️ Tech Stack
+## 🚀 Getting Started
 
-Layer	Technology
-Frontend	React + TypeScript
-Styling	Tailwind CSS
-Animation	Framer Motion
-Backend	Supabase
-Database	PostgreSQL
-Authentication	Supabase Auth
-AI	Alibaba Cloud Qwen-Max
-API	DashScope Compatible API
-Deployment	Vercel
-Memory	Custom MemoryAgent Engine
+1. Set up your Supabase project.
+2. Configure the `QWEN_API_KEY` in your Supabase Edge Function secrets.
+3. Use the integrated SQL tools to set up the `profiles`, `user_memories`, and `urge_logs` schema.
 
 ---
 
-##🚀 AI Pipeline
-User Action
-     │
-     ▼
-Edge Function
-     │
-     ▼
-Memory Retrieval
-     │
-     ▼
-Qwen-Max
-     │
-     ▼
-Memory Reinforcement
-     │
-     ▼
-Behavior Evaluation
-     │
-     ▼
-Dashboard Updates
+## 🔒 Security
+- **Inactivity PIN Lock:** Automatically secures the app after a customizable period of idle time.
+- **Privacy Mode:** Notification text is kept discreet to protect user privacy in public spaces.
 
----
-
-##📸 Screenshots
-
-Add application screenshots here.
-
-Home
-AI Chat
-Daily Check-in
-Urge Logger
-Progress Dashboard
-Settings
-
----
-
-##☁ Alibaba Cloud Integration
-
-Anchor uses Alibaba Cloud's Qwen-Max through the DashScope-compatible API.
-
-The application communicates with:
-
-https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
-
-All AI conversations, behavioral evaluations, and memory reasoning are powered by Qwen-Max running on Alibaba Cloud.
-
----
-
-##🔒 Security
-Row-Level Security (RLS)
-Secure authentication
-Protected Edge Functions
-Memory isolation per user
-Encrypted API communication
-
----
-
-##📄 License
-
-MIT License
-
-Built for the Global AI Hackathon 2026 using Alibaba Cloud Qwen-Max.
+Built for the Global AI Hackathon 2026.
