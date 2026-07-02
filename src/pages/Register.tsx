@@ -59,7 +59,7 @@ const Register = () => {
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6">
-        <Card className="w-full max-w-md p-8 rounded-[40px] border-none shadow-2xl text-center space-y-6">
+        <Card className="w-full max-w-md p-8 rounded-[40px] border-none shadow-2xl text-center space-y-6 bg-white">
           <div className="w-20 h-20 bg-green-100 text-green-600 rounded-3xl flex items-center justify-center mx-auto">
             <CheckCircle2 size={48} />
           </div>
@@ -100,7 +100,7 @@ const Register = () => {
           <p className="text-indigo-100">Start your recovery journey today</p>
         </div>
 
-        <Card className="p-6 rounded-3xl border-none shadow-2xl">
+        <Card className="p-6 rounded-3xl border-none shadow-2xl bg-white">
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <div className="relative">
@@ -108,7 +108,7 @@ const Register = () => {
                 <Input
                   type="text"
                   placeholder="Full Name / Display Name"
-                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none"
+                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none text-slate-900"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   required
@@ -121,7 +121,7 @@ const Register = () => {
                 <Input
                   type="email"
                   placeholder="Email Address"
-                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none"
+                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none text-slate-900"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -134,7 +134,7 @@ const Register = () => {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
-                  className="pl-10 pr-10 h-12 rounded-xl bg-slate-50 border-none"
+                  className="pl-10 pr-10 h-12 rounded-xl bg-slate-50 border-none text-slate-900"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -154,7 +154,7 @@ const Register = () => {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Confirm Password"
-                  className="pl-10 pr-10 h-12 rounded-xl bg-slate-50 border-none"
+                  className="pl-10 pr-10 h-12 rounded-xl bg-slate-50 border-none text-slate-900"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

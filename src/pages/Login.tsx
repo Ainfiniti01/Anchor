@@ -46,7 +46,7 @@ const Login = () => {
           <p className="text-indigo-100">Sign in to continue your journey</p>
         </div>
 
-        <Card className="p-6 rounded-3xl border-none shadow-2xl">
+        <Card className="p-6 rounded-3xl border-none shadow-2xl bg-white">
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <div className="relative">
@@ -54,7 +54,7 @@ const Login = () => {
                 <Input
                   type="email"
                   placeholder="Email Address"
-                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none"
+                  className="pl-10 h-12 rounded-xl bg-slate-50 border-none text-slate-900"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -67,7 +67,7 @@ const Login = () => {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
-                  className="pl-10 pr-10 h-12 rounded-xl bg-slate-50 border-none"
+                  className="pl-10 pr-10 h-12 rounded-xl bg-slate-50 border-none text-slate-900"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
