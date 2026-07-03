@@ -37,6 +37,13 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
 
 ---
 
+## 🏗️ Screenshots
+
+Anchor uses a **Tri-Stage Intelligence Loop**:
+
+
+---
+
 ## 🧠 MemoryAgent Implementation
 
 Anchor satisfies the MemoryAgent requirements through four core capabilities:
