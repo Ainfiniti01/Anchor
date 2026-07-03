@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
-import brandLogo from '../../assets/images/createimg-ai.png';
+import brandLogo from '../../assets/images/_1c592e83-1366-4bb2-b7b0-e1f941f7668f';
 
 const Register = () => {
   const [email, setEmail] = useState('');
