@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import brandLogo from '';
+import brandLogo from '../../assets/images/createimg-ai.png';
 
 const Index = () => {
   const navigate = useNavigate();
