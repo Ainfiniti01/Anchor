@@ -41,7 +41,7 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
 
 Anchor uses a **Tri-Stage Intelligence Loop**:
 
-
+![Home Page](assets/images/createimg-ai.png)
 ---
 
 ## 🧠 MemoryAgent Implementation
