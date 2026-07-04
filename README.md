@@ -149,6 +149,14 @@ Memories strengthen when confirmed by the user and gradually decay if they are n
 - **AI Engine:** Alibaba Cloud Qwen-Max (DashScope Workspace Endpoint)
 - **Deployment:** Vercel
 
+## ☁️ Alibaba Cloud Integration
+
+Anchor communicates with Alibaba Cloud Qwen through the official DashScope Workspace OpenAI-compatible endpoint:
+
+https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
+
+The application performs AI reasoning using Alibaba Cloud Qwen models via Supabase Edge Functions.
+
 ---
 
 ## 🚀 Getting Started
