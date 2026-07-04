@@ -208,4 +208,7 @@ The result is an AI companion that becomes more personalized with every interact
 ## 📄 License
 
 MIT License
-Built for the Global AI Hackathon 2026.
+
+Built with Alibaba Cloud Qwen
+
+Built for Global AI Hackathon 2026
