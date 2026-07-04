@@ -28,6 +28,16 @@ Anchor is a privacy-first AI accountability companion that combines persistent m
 
 ---
 
+## 🎥 Demo
+
+Live Demo:
+https://dev-sphere-kappa.vercel.app/
+
+Demo Video:
+(Coming Soon)
+
+---
+
 ## ✨ Core Features
 
 - 🧠 **Persistent Behavioral Memory:** Remembers goals, triggers, and identity statements across sessions.
