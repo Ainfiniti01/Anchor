@@ -1,6 +1,6 @@
 # ⚓ Anchor — Behavioral MemoryAgent
 
-**A Private, Memory-Powered Accountability Companion built with Alibaba Cloud Qwen-Max.**
+**A Private, Memory-Powered Accountability Companion built with Alibaba Cloud Qwen.**
 
 ![Anchor Logo](assets/images/createimg-ai.png)
 
