@@ -84,40 +84,38 @@ Demo Video:
 Anchor uses a **Tri-Stage Intelligence Loop**:
 
 ```text
-+-----------------------------------------------------+
-       |                  User Interfaces                    |
-       |  (Home, Settings, Redefined Urge Logger, Progress)  |
-       +-----------------------------------------------------+
-          |                      |                      |
-          | 1. Log Wellness /    | 2. Complete Check-In | 3. Send Chat
-          |    Urge Event        |                      |    Message
-          v                      v                      v
-+-------------------+  +-------------------+  +--------------------+
-|  [urge_logs]      |  | [behavioral_logs] |  |  [chat_messages]   |
-|  [relapse_logs]   |  |                   |  |  (Memory Retrieval)|
-+-------------------+  +-------------------+  +--------------------+
-          |                      |                      |
-          +----------------------+----------------------+
-                                 |
-                                 v  (Secure HTTP Handshake)
-                     +------------------------------------+
-                     |  Supabase Edge Function            |  <-- Powered by Qwen-Max  
-                     |         ├── chat-ai                |
-                     |         ├── evaluate-user          |  
-                     |         ├── progress-intelligence  |  
-                     |         └── check-in-scheduler     |
-                     +------------------------------------+
-                                 |
-                                 v  (Updates State Columns)
-                       +------------------+
-                       | [profiles] Table |
-                       +------------------+
-                                 |
-                                 v  (Real-Time Dynamic UI)
-                    +------------------------+
-                    | Progress Live Charts & |
-                    | AI Recommendation Card |
-                    +------------------------+
+┌───────────────────────────────┐
+│        React Frontend         │
+│ Home • Chat • Progress • PIN  │
+└───────────────┬───────────────┘
+                │
+                ▼
+      Supabase Authentication
+                │
+                ▼
+        PostgreSQL Database
+   Profiles • Memories • Logs
+                │
+                ▼
+     Supabase Edge Functions
+ ┌─────────────────────────────┐
+ │ chat-ai                     │
+ │ evaluate-user               │
+ │ progress-intelligence       │
+ │ check-in-scheduler          │
+ └───────────────┬─────────────┘
+                 │
+                 ▼
+ Alibaba Cloud DashScope API
+                 │
+                 ▼
+        Qwen-Max Reasoning
+                 │
+                 ▼
+ Updated Memory + Risk Score
+                 │
+                 ▼
+ Live Dashboard & AI Responses
 ```
 
 1. **Log Collection:** User logs wellness or urges via a redefined logic gate.
