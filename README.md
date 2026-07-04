@@ -65,6 +65,7 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
 ## 🧠 How Anchor Implements MemoryAgent
 
 Anchor satisfies the MemoryAgent requirements through four core capabilities:
+Behavioral Adaptation:
 Anchor continuously updates recovery scores, risk levels, reflection prompts, and recommended actions based on conversations, wellness check-ins, urge logs, and relapse history.
 
 ### Persistent Memory
