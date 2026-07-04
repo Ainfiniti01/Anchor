@@ -3,6 +3,7 @@
 **A Private, Memory-Powered Accountability Companion built with Alibaba Cloud Qwen-Max.**
 
 > *"Anchor doesn't simply remember conversations, it remembers meaningful progress."*
+
 > *"Anchor communicates with Alibaba Cloud Qwen models through the DashScope Workspace OpenAI-compatible API."*
 
 ![Anchor Logo](assets/images/createimg-ai.png)
