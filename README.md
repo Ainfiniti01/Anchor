@@ -166,6 +166,7 @@ Memories strengthen when confirmed by the user and gradually decay if they are n
 - **Database/Auth:** Supabase (PostgreSQL + RLS)
 - **AI Engine:** Alibaba Cloud Qwen-Max (DashScope Workspace Endpoint)
 - **Deployment:** Vercel
+- **Backend:** Supabase Edge Functions
 
 ## ☁️ Alibaba Cloud Integration
 
