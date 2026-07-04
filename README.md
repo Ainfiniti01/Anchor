@@ -191,6 +191,14 @@ Run npm run dev
 - **Privacy Mode:** Notification text is kept discreet to protect user privacy in public spaces.
 
 ---
+## ❤️ Why Anchor?
+
+Most habit trackers record numbers.
+
+Anchor remembers people.
+
+By combining persistent memory, behavioral reasoning, and adaptive conversations, Anchor becomes an accountability companion that grows alongside the user instead of treating every session as a fresh start.
+---
 
 ## 📄 License
 
