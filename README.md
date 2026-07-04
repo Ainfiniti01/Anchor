@@ -31,6 +31,17 @@ Every conversation follows a complete memory lifecycle:
 • Decay outdated memories
 
 This allows Anchor to continuously learn while keeping its context focused and efficient.
+
+### Autonomous Memory Lifecycle
+
+Anchor continuously:
+
+- Stores meaningful user experiences
+- Retrieves only relevant memories
+- Reinforces confirmed memories
+- Gradually forgets outdated information through memory decay
+
+This enables long-term personalized support while maintaining an efficient context window.
 ---
 
 ## 📱 Application Interface
