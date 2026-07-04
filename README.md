@@ -183,4 +183,10 @@ Unlike traditional AI chatbots that forget previous conversations, Anchor contin
 It learns from successes, reinforces healthy patterns, gradually forgets outdated information, and adapts its guidance over time using Alibaba Cloud Qwen as its reasoning engine.
 
 The result is an AI companion that becomes more personalized with every interaction.
+
+---
+
+## 📄 License
+
+MIT License
 Built for the Global AI Hackathon 2026.
