@@ -102,7 +102,11 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
                                  v  (Secure HTTP Handshake)
                      +-----------------------+
                      |  evaluate-user        |  <-- Powered by Qwen-Max
-                     | Supabase Edge Function        |
+                     | Supabase Edge Function
+                     ├── chat-ai
+ ├── evaluate-user
+ ├── progress-intelligence
+ └── check-in-scheduler        |
                      +-----------------------+
                                  |
                                  v  (Updates State Columns)
