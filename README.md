@@ -95,6 +95,20 @@ Memories strengthen when confirmed by the user and gradually decay if they are n
 2. Configure the `QWEN_API_KEY` in your Supabase Edge Function secrets.
 3. Use the integrated SQL tools to set up the `profiles`, `user_memories`, and `urge_logs` schema.
 
+Clone repository
+
+Install dependencies
+
+Configure Supabase
+
+Set QWEN_API_KEY
+
+Deploy Edge Functions
+
+Run npm install
+
+Run npm run dev
+
 ---
 
 ## 🔒 Security
