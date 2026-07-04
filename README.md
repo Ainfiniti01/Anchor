@@ -8,8 +8,8 @@
 
 ## 🛡️ Badges
 
-### 🏠 Home Dashboard & 💬 AI Chat Companion
-| Home Dashboard | AI Chat Companion |
+### 🏠 Home Dashboard & Alibaba Cloud_Qwen
+| Home Dashboard | Alibaba Cloud_Qwen |
 | :---: | :---: |
 | ![Track](https://img.shields.io/badge/Global_AI_Hackathon-MemoryAgent-blue) | ![Alibaba Cloud](https://img.shields.io/badge/Alibaba%20Cloud-Qwen-orange) |
 
