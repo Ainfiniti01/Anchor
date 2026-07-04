@@ -184,7 +184,19 @@ The application performs AI reasoning using Alibaba Cloud Qwen models via Supaba
 2. Configure the `QWEN_API_KEY` in your Supabase Edge Function secrets.
 3. Use the integrated SQL tools to set up the `profiles`, `user_memories`, and `urge_logs` schema.
 
-
+Clone Repository
+      ↓
+Install Dependencies
+      ↓
+Configure Supabase
+      ↓
+Set QWEN_API_KEY
+      ↓
+Deploy Edge Functions
+      ↓
+npm install
+      ↓
+npm run dev
 ---
 
 ## ❤️ Why Anchor?
