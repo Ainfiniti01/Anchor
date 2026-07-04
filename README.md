@@ -14,6 +14,19 @@ Anchor is a privacy-first AI accountability companion that combines persistent m
 
 ---
 
+### Autonomous Memory Lifecycle
+
+Anchor continuously:
+
+- Stores meaningful user experiences
+- Retrieves only relevant memories
+- Reinforces confirmed memories
+- Gradually forgets outdated information through memory decay
+
+This enables long-term personalized support while maintaining an efficient context window.
+
+---
+
 ## 📱 Application Interface
 
 ### 🏠 Home Dashboard & 💬 AI Chat Companion
