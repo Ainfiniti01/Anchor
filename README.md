@@ -62,7 +62,7 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
 ![Settings Page](assets/images/settings.png)
 ---
 
-## 🧠 MemoryAgent Implementation
+## 🧠 How Anchor Implements MemoryAgent
 
 Anchor satisfies the MemoryAgent requirements through four core capabilities:
 
