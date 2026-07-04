@@ -29,7 +29,7 @@ Every conversation follows a complete memory lifecycle:
 • Retrieve relevant memories
 • Reason with Alibaba Cloud Qwen
 • Reinforce confirmed memories
-• Store new experiences
+• Store new experiences 
 • Decay outdated memories
 
 This allows Anchor to continuously learn while keeping its context focused and efficient.
