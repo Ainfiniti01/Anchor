@@ -52,7 +52,7 @@ Dashboard & Chat
 
 ---
 
-## 🏗️ Screenshots
+## 📱 Screenshots
 
 Anchor uses a **Tri-Stage Intelligence Loop**:
 
