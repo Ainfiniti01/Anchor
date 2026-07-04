@@ -148,4 +148,10 @@ Run npm run dev
 - **Inactivity PIN Lock:** Automatically secures the app after a customizable period of idle time.
 - **Privacy Mode:** Notification text is kept discreet to protect user privacy in public spaces.
 
+---
+
+## 📄 License
+
+MIT License
+
 Built for the Global AI Hackathon 2026.
