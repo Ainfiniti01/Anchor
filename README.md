@@ -20,6 +20,17 @@
 
 Anchor is a privacy-first AI accountability companion that combines persistent memory, behavioral learning, and adaptive support to help people build healthier habits over time. Unlike conventional habit trackers, Anchor distinguishes between wellness check-ins, urges, resisted urges, and relapses to provide more meaningful insights.
 
+## 🧠 Memory Engine
+
+Every conversation follows a complete memory lifecycle:
+
+• Retrieve relevant memories
+• Reason with Alibaba Cloud Qwen
+• Reinforce confirmed memories
+• Store new experiences
+• Decay outdated memories
+
+This allows Anchor to continuously learn while keeping its context focused and efficient.
 ---
 
 ## 📱 Application Interface
