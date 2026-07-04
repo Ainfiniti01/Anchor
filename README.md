@@ -65,6 +65,7 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
 ## 🧠 How Anchor Implements MemoryAgent
 
 Anchor satisfies the MemoryAgent requirements through four core capabilities:
+Anchor continuously updates recovery scores, risk levels, reflection prompts, and recommended actions based on conversations, wellness check-ins, urge logs, and relapse history.
 
 ### Persistent Memory
 The AI remembers goals, triggers, and achievements. These are stored in `user_memories` with importance scores.
