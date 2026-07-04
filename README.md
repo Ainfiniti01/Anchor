@@ -146,10 +146,14 @@ Memories strengthen when confirmed by the user and gradually decay if they are n
 2. Configure the `QWEN_API_KEY` in your Supabase Edge Function secrets.
 3. Use the integrated SQL tools to set up the `profiles`, `user_memories`, and `urge_logs` schema.
 
+
 ---
 
-## 🔒 Security
-- **Inactivity PIN Lock:** Automatically secures the app after a customizable period of idle time.
-- **Privacy Mode:** Notification text is kept discreet to protect user privacy in public spaces.
+## ❤️ Why Anchor?
 
+Most habit trackers record numbers.
+
+Anchor remembers people.
+
+By combining persistent memory, behavioral reasoning, and adaptive conversations, Anchor becomes an accountability companion that grows alongside the user instead of treating every session as a fresh start.
 Built for the Global AI Hackathon 2026.
