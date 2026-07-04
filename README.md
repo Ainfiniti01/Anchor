@@ -6,7 +6,7 @@
 
 ![Anchor Logo](assets/images/createimg-ai.png)
 
-## 📱 Badges
+## 🛡️ Badges
 
 ### 🏠 Home Dashboard & 💬 AI Chat Companion
 | Home Dashboard | AI Chat Companion |
