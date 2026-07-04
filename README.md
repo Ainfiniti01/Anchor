@@ -84,38 +84,55 @@ Demo Video:
 Anchor uses a **Tri-Stage Intelligence Loop**:
 
 ```text
-┌───────────────────────────────┐
-│        React Frontend         │
-│ Home • Chat • Progress • PIN  │
-└───────────────┬───────────────┘
-                │
-                ▼
-      Supabase Authentication
-                │
-                ▼
-        PostgreSQL Database
-   Profiles • Memories • Logs
-                │
-                ▼
-     Supabase Edge Functions
- ┌─────────────────────────────┐
- │ chat-ai                     │
- │ evaluate-user               │
- │ progress-intelligence       │
- │ check-in-scheduler          │
- └───────────────┬─────────────┘
-                 │
-                 ▼
- Alibaba Cloud DashScope API
-                 │
-                 ▼
-        Qwen-Max Reasoning
-                 │
-                 ▼
- Updated Memory + Risk Score
-                 │
-                 ▼
- Live Dashboard & AI Responses
+┌──────────────────────────────────────────┐
+│             React Frontend               │
+│    Home • Chat • Progress • Settings     │
+└──────────────────┬───────────────────────┘
+                   │
+                   ▼
+        ┌────────────────────────┐
+        │  Supabase Auth (JWT)   │
+        └───────────┬────────────┘
+                    │
+                    ▼
+        ┌────────────────────────┐
+        │ PostgreSQL Database    │
+        │ • Profiles             │
+        │ • User Memories        │
+        │ • Urge Logs            │
+        │ • Behavioral Logs      │
+        │ • Chat Messages        │
+        └───────────┬────────────┘
+                    │
+                    ▼
+      ┌────────────────────────────────┐
+      │ Supabase Edge Functions        │
+      │ • chat-ai                      │
+      │ • evaluate-user                │
+      │ • progress-intelligence        │
+      │ • check-in-scheduler           │
+      └───────────────┬────────────────┘
+                      │
+                      ▼
+      ┌────────────────────────────────┐
+      │ Alibaba Cloud DashScope API    │
+      └───────────────┬────────────────┘
+                      │
+                      ▼
+      ┌────────────────────────────────┐
+      │ Qwen-Max AI Reasoning          │
+      │ • Memory Retrieval             │
+      │ • Memory Reinforcement         │
+      │ • Memory Decay                 │
+      │ • Risk Evaluation              │
+      │ • Personalized Responses       │
+      └───────────────┬────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────┐
+│      Live Dashboard & AI Companion       │
+│  Recovery Score • Insights • Chat • UI   │
+└──────────────────────────────────────────┘
 ```
 
 1. **Log Collection:** User logs wellness or urges via a redefined logic gate.
