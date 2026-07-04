@@ -36,6 +36,20 @@ Anchor uses a **Tri-Stage Intelligence Loop**:
 2. **Behavioral Reasoning:** Supabase Edge Functions (Qwen-Max) analyze the logs, factoring in intensity, frequency, and time of day.
 3. **State Synthesis:** The AI updates the user's `recovery_score` and `risk_level`, providing a fresh "Weekly Insight" and "Recommended Action" on the dashboard.
 
+User Action
+     ↓
+Behavioral Logs
+     ↓
+Supabase Edge Functions
+     ↓
+Qwen Memory Reasoning
+     ↓
+Memory Update
+     ↓
+Risk Evaluation
+     ↓
+Dashboard & Chat
+
 ---
 
 ## 🏗️ Screenshots
