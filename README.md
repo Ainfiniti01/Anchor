@@ -108,6 +108,19 @@ Live Dashboard & Chat Synthesis
 3. **State Synthesis:** The AI updates the user's `recovery_score` and `risk_level`, providing a fresh "Weekly Insight" and "Recommended Action" on the dashboard.
 
 ---
+## 📂 Project Structure
+
+frontend/
+supabase/
+ ├── functions/
+ │    ├── chat-ai
+ │    ├── evaluate-user
+ │    ├── progress-intelligence
+ │    └── check-in-scheduler
+database/
+assets/
+
+---
 
 ## 🧠 How Anchor Implements MemoryAgent
 
