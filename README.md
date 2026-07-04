@@ -56,6 +56,13 @@ This enables long-term personalized support while maintaining an efficient conte
 | :---: | :---: |
 | ![Progress Page](assets/images/progress.png) | ![Settings Page](assets/images/settings.png) |
 
+## 🎥 Demo
+
+Live Demo:
+https://dev-sphere-kappa.vercel.app/
+
+Demo Video:
+(Coming Soon)
 ---
 
 ## ✨ Core Features
