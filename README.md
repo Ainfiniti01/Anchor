@@ -4,7 +4,7 @@
 
 ![Anchor Logo](assets/images/createimg-ai.png)
 
-Anchor helps people regain control over their habits by combining long-term behavioral memory, real-time risk evaluation, and adaptive AI support. Unlike standard tracking apps, Anchor distinguishes between staying well, experiencing an urge, and resisting challenges.
+Anchor is a privacy-first AI accountability companion that combines persistent memory, behavioral learning, and adaptive support to help people build healthier habits over time. Unlike conventional habit trackers, Anchor distinguishes between wellness check-ins, urges, resisted urges, and relapses to provide more meaningful insights.
 
 ---
 
