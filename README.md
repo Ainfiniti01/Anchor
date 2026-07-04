@@ -81,7 +81,7 @@ Demo Video:
 
 ## 🏗️ Technical Architecture
 
-Anchor uses a **Tri-Stage Intelligence Loop**:
+Anchor's end-to-end AI and memory architecture is illustrated below:
 
 ```text
 ┌──────────────────────────────────────────┐
