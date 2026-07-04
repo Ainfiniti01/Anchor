@@ -186,17 +186,23 @@ The application performs AI reasoning using Alibaba Cloud Qwen models via Supaba
 
 ```text
 Clone Repository
-      ↓
+      │
+      ▼
 Install Dependencies
-      ↓
+      │
+      ▼
 Configure Supabase
-      ↓
+      │
+      ▼
 Set QWEN_API_KEY
-      ↓
+      │
+      ▼
 Deploy Edge Functions
-      ↓
+      │
+      ▼
 npm install
-      ↓
+      │
+      ▼
 npm run dev
 
 ```
