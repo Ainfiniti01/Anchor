@@ -85,7 +85,7 @@ Memories strengthen when confirmed by the user and gradually decay if they are n
 
 - **Frontend:** React + TypeScript + Tailwind CSS
 - **Database/Auth:** Supabase (PostgreSQL + RLS)
-- **AI Engine:** Alibaba Cloud Qwen-Max (DashScope Workspace Endpoint)
+- **AI Engine:** Alibaba Cloud Qwen-Ai (DashScope Workspace Endpoint)
 - **Deployment:** Vercel
 - **Backend:** Supabase Edge Functions
 
