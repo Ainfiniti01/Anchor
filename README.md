@@ -74,6 +74,7 @@ Demo Video:
 - 📈 **Segregated Metrics:** Separate tracking for Days Checked In, Urges Experienced, Urges Resisted, and Relapses.
 - 🔒 **Security-First Design:** Features an inactivity-based PIN Lock and strict Row-Level Security (RLS).
 - 🔔 **Discreet Support:** Custom notification chimes and personalized companion styles (Supportive, Neutral, or Coaching).
+- 🧩 Personalized AI Companion: Adapts its tone (Supportive, Neutral, or Accountability Coach) based on user preferences.
 
 ---
 
