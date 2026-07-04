@@ -156,4 +156,12 @@ Most habit trackers record numbers.
 Anchor remembers people.
 
 By combining persistent memory, behavioral reasoning, and adaptive conversations, Anchor becomes an accountability companion that grows alongside the user instead of treating every session as a fresh start.
+
+## 🚀 What Makes Anchor Different?
+
+Unlike traditional AI chatbots that forget previous conversations, Anchor continuously builds a behavioral memory of the user.
+
+It learns from successes, reinforces healthy patterns, gradually forgets outdated information, and adapts its guidance over time using Alibaba Cloud Qwen as its reasoning engine.
+
+The result is an AI companion that becomes more personalized with every interaction.
 Built for the Global AI Hackathon 2026.
