@@ -8,7 +8,7 @@
 ![Anchor Logo](assets/images/createimg-ai.png)
 
 ### 🏠 Home Dashboard & 💬 AI Chat Companion
-| Home Dashboard | AI Chat Companion |
+|  | AI Chat Companion |
 | :---: | :---: |
 | ![Track](https://img.shields.io/badge/Global_AI_Hackathon-MemoryAgent-blue)| ![Alibaba Cloud](https://img.shields.io/badge/Alibaba%20Cloud-Qwen-orange) |
 
