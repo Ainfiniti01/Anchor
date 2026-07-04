@@ -6,6 +6,13 @@
 
 ![Anchor Logo](assets/images/createimg-ai.png)
 
+## 📱 Badges
+
+### 🏠 Home Dashboard & 💬 AI Chat Companion
+| Home Dashboard | AI Chat Companion |
+| :---: | :---: |
+| ![Home Page](assets/images/home.png) | ![Chat Page](assets/images/chat.png) |
+
 ---
 
 ## 🌍 Global AI Hackathon — Track 1: MemoryAgent
