@@ -64,7 +64,7 @@ Live Demo:
 https://dev-sphere-kappa.vercel.app/
 
 Demo Video:
-(Coming Soon)
+https://www.youtube.com/watch?v=aBwEt82NU6Q
 ---
 
 ## ✨ Core Features
