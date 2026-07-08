@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 
@@ -42,6 +43,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   const [recommendation, setRecommendation] = useState<NotificationRecommendation | null>(null);
   const isProcessingRef = useRef(false);
+  const location = useLocation();
 
   const fetchChatAndMemories = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -96,6 +98,15 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Automatically sync read status and unread count on route changes
+  useEffect(() => {
+    if (location.pathname === '/chat') {
+      markAllAsRead();
+    } else {
+      fetchChatAndMemories();
+    }
+  }, [location.pathname]);
+
   useEffect(() => {
     fetchChatAndMemories();
 
@@ -117,10 +128,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         if (newMsg.role === 'ai') {
           const isCurrentlyOnChatPage = window.location.pathname === '/chat';
           if (isCurrentlyOnChatPage) {
-            // Automatically mark as read since user is looking at the chat
             markAllAsRead();
           } else {
-            // Increment unread count since user is on another page
             setUnreadCount(c => c + 1);
           }
         }
