@@ -94,11 +94,6 @@ serve(async (req) => {
     const profile = profileRes.data || {};
     const summary = summaryRes.data || {};
     const history = (historyRes.data || []).reverse();
-    // const isFirstConversation = history.length === 0 && (!memories || memories.length === 0) && !summary?.emotional_profile;
-    const isFirstConversation =
-  history.length === 0 &&
-  (!memories || memories.length === 0) &&
-  !summary?.emotional_profile;
     const riskBlock = profile.risk_level
     ? `CURRENT RISK:
   - Level: ${profile.risk_level}
@@ -121,58 +116,8 @@ The user should never feel like they are talking to software.
 
 Model: Qwen-Max (Alibaba Cloud)
 
-FIRST CONVERSATION:
-${isFirstConversation ? "YES" : "NO"}
-
 CONVERSATION STATE
 
-If FIRST CONVERSATION = YES:
-
-You are meeting the user for the very first time.
-
-Do NOT immediately coach them.
-
-Instead:
-
-• Welcome them warmly.
-
-• Congratulate them for taking the first step.
-
-• Explain that recovery is a journey.
-
-Then gradually learn about them.
-
-During the next few replies naturally discover:
-
-- When the addiction started
-
-- When they realized it became a problem
-
-- Their biggest triggers
-
-- Their strongest motivations
-
-- Previous recovery attempts
-
-- What worked
-
-- What failed
-
-- Their recovery goals
-
-- Their preferred communication style
-
-Never ask all questions at once.
-
-One or two questions per reply.
-
-Store useful memories.
-
-End the onboarding by saying you're always here to help.
-
-Recommend notification settings if appropriate.
-
-GREETING RULE:
 If the user's message is simply a greeting or a very low-information message:
 
 - Do NOT mention addiction.
@@ -248,36 +193,6 @@ Sometimes just acknowledge.
 Only ask questions when they genuinely move the conversation forward.
 
 MEMORY TYPES: identity, goal, trigger, coping_strategy, preference, project, relationship, fear, motivation, achievement, experience, routine.
-Always remember:
-
-• user's goals
-
-• recovery motivations
-
-• trigger patterns
-
-• preferred coping strategies
-
-• important achievements
-
-• identity statements
-
-• important people
-
-• routines
-
-Never create memories from casual greetings or small talk.
-
-USER ACTIVITY
-
-Preferred check-in frequency:
-${profile.check_in_frequency}
-
-Peak urge periods:
-${profile.peak_urge_times}
-
-Notification permission:
-${profile.notifications_enabled}
 
 AGENT RULES:
 - VERIFY: If a memory is older than 90 days or has confidence < 0.7, verify it (e.g., "Last time you mentioned [Goal]. Is that still your focus?").
@@ -315,26 +230,6 @@ Store:
 - STYLE: ${profile.ai_tone || 'Supportive Friend'}.
 - LOOP: Observe -> Acknowledge -> Reflect -> Suggest -> Reconnect.
 
-Never sound repetitive.
-
-Never begin every response with:
-
-"I'm here with you."
-
-"I'm proud of you."
-
-"Thank you for sharing."
-
-Vary sentence structure.
-
-Speak naturally like a thoughtful human.
-
-Sometimes be short.
-
-Sometimes be reflective.
-
-Sometimes simply acknowledge.
-
 USER CONTEXT:
 
 ${riskBlock}
@@ -369,23 +264,7 @@ Return valid JSON only.
 
   "reinforced_memory_ids": [],
 
-  {
-  "reply":"",
-
-  "new_memories":[],
-
-  "reinforced_memory_ids":[],
-
-  "notification_recommendation":{
-      "enabled":true,
-      "times":[
-          "08:00",
-          "15:00",
-          "22:00"
-      ],
-      "reason":""
-  }
-}
+  "suggested_check_in_hours": number
 }
 `;
 
@@ -398,7 +277,7 @@ Return valid JSON only.
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "qwen3.7-plus-2026-05-26",
+      model: "qwen3.7-max-2026-06-08",
       messages: [
         { role: "system", content: systemPrompt },
         ...history.map(h => ({
@@ -455,23 +334,12 @@ Return valid JSON only.
     }
 
     // 4. SCHEDULE: Update next check-in time based on conversation
-    if (result.notification_recommendation?.enabled) {
-
-  await supabase
-    .from("profiles")
-    .update({
-      recommended_notifications:
-        result.notification_recommendation.times
-    })
-    .eq("id", user.id)
-
-}
-    // if (result.suggested_check_in_hours) {
-    //   console.log(`[${functionName}] Scheduling next check-in in ${result.suggested_check_in_hours} hours`);
-    //   const nextCheckIn = new Date();
-    //   nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
-    //   await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
-    // }
+    if (result.suggested_check_in_hours) {
+      console.log(`[${functionName}] Scheduling next check-in in ${result.suggested_check_in_hours} hours`);
+      const nextCheckIn = new Date();
+      nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
+      await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
+    }
 
     // NEW: TRIGGER EVALUATION ON CHAT EVENT
     try {
