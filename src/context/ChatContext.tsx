@@ -70,7 +70,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Failed to load chat history:", chatError);
     } else if (chatData) {
       setMessages(chatData);
-      // Calculate unread count
+      // Calculate unread count safely
       const unread = chatData.filter(m => m.role === 'ai' && m.read === false).length;
       setUnreadCount(unread);
     }
@@ -79,7 +79,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     fetchChatAndMemories();
 
-    // Set up real-time subscription for new messages (e.g. AI-initiated or background replies)
+    // Set up real-time subscription for new messages
     const channel = supabase
       .channel('chat_messages_changes')
       .on('postgres_changes', {
@@ -107,15 +107,21 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Optimistically clear unread count and update local state
     setUnreadCount(0);
     setMessages(prev => prev.map(m => m.role === 'ai' ? { ...m, read: true } : m));
 
-    await supabase
-      .from('chat_messages')
-      .update({ read: true })
-      .eq('user_id', user.id)
-      .eq('role', 'ai')
-      .eq('read', false);
+    try {
+      // Perform the update safely
+      await supabase
+        .from('chat_messages')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('role', 'ai')
+        .eq('read', false);
+    } catch (err) {
+      console.warn("Could not sync read status to database. Ensure SQL migration has been run.", err);
+    }
   };
 
   const sendMessage = async (text: string) => {
@@ -149,8 +155,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     // 2. Immediately display user message in UI
     setMessages(prev => [...prev, savedUserMsg]);
 
-    // 3. Start Edge Function request in the background (WhatsApp/Telegram style)
-    // We do not await this inside the component unmount lifecycle
+    // 3. Start Edge Function request in the background
     triggerBackgroundAiReply(text, user.id);
   };
 
@@ -227,13 +232,13 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          message: "Hello Anchor",
-          user_id: user.id,
-          is_first_time: true
-        })
-      });
+          },
+          body: JSON.stringify({
+            message: "Hello Anchor",
+            user_id: user.id,
+            is_first_time: true
+          })
+        });
 
       if (!response.ok) throw new Error("AI Service unavailable");
 
