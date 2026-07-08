@@ -34,6 +34,7 @@ const Chat = () => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -46,19 +47,33 @@ const Chat = () => {
     }
   }, [isFirstTimeUser, messages.length]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: 'smooth'
+        behavior
       });
     }
   };
 
   useEffect(() => {
-    const timer = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timer);
-  }, [messages, isTyping]);
+    if (messages.length > 0) {
+      if (isInitialLoad) {
+        // Snap instantly to bottom on first load
+        scrollToBottom('auto');
+        setIsInitialLoad(false);
+      } else {
+        // Smooth scroll for new messages
+        scrollToBottom('smooth');
+      }
+    }
+  }, [messages, isInitialLoad]);
+
+  useEffect(() => {
+    if (isTyping) {
+      scrollToBottom('smooth');
+    }
+  }, [isTyping]);
 
   // Handle auto-resizing of textarea to prevent horizontal scroll & ugly overflows
   useEffect(() => {
