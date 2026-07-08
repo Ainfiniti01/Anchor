@@ -136,16 +136,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       })
       .subscribe();
 
-    // Robust polling fallback to guarantee unread count is always accurate
-    const interval = setInterval(() => {
-      if (window.location.pathname !== '/chat') {
-        fetchChatAndMemories();
-      }
-    }, 10000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(interval);
     };
   }, []);
 
@@ -226,8 +218,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         });
       }
 
-      // Handle notification recommendation if present and not null
-      if (data.notification_recommendation && data.notification_recommendation.explanation) {
+      // Handle notification recommendation if present
+      if (data.notification_recommendation) {
         setRecommendation(data.notification_recommendation);
       }
 

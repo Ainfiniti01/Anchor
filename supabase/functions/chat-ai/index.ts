@@ -266,16 +266,12 @@ Return valid JSON only.
 
   "suggested_check_in_hours": number,
 
-  "notification_recommendation": null or {
+  "notification_recommendation": {
     "recommended_frequency": "string (e.g., 'Twice per day', 'Once per day', 'Three times per day')",
     "recommended_times": "string (e.g., '9:00 AM and 6:00 PM')",
     "explanation": "string (short explanation of why this change is recommended based on their patterns)"
   }
 }
-
-CRITICAL RULE FOR notification_recommendation:
-- ONLY return a non-null object for notification_recommendation if you genuinely detect a strong pattern change or trigger risk that warrants adjusting their check-in frequency.
-- If their current schedule is fine, or if you don't have enough data to make a high-confidence recommendation, you MUST return null.
 `;
 
     const qwenResponse = await fetch(
