@@ -70,8 +70,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Failed to load chat history:", chatError);
     } else if (chatData) {
       setMessages(chatData);
-      // Calculate unread count safely
-      const unread = chatData.filter(m => m.role === 'ai' && m.read === false).length;
+      // Calculate unread count safely (treating null or false as unread)
+      const unread = chatData.filter(m => m.role === 'ai' && m.read !== true).length;
       setUnreadCount(unread);
     }
   };
@@ -112,15 +112,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     setMessages(prev => prev.map(m => m.role === 'ai' ? { ...m, read: true } : m));
 
     try {
-      // Perform the update safely
+      // Perform the update safely without filtering on read=false to avoid PostgREST 400 errors
       await supabase
         .from('chat_messages')
         .update({ read: true })
         .eq('user_id', user.id)
-        .eq('role', 'ai')
-        .eq('read', false);
+        .eq('role', 'ai');
     } catch (err) {
-      console.warn("Could not sync read status to database. Ensure SQL migration has been run.", err);
+      console.warn("Could not sync read status to database.", err);
     }
   };
 
