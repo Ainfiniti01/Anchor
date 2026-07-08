@@ -76,33 +76,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  useEffect(() => {
-    fetchChatAndMemories();
-
-    // Set up real-time subscription for new messages
-    const channel = supabase
-      .channel('chat_messages_changes')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages'
-      }, (payload) => {
-        const newMsg = payload.new as Message;
-        setMessages(prev => {
-          if (prev.some(m => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
-        if (newMsg.role === 'ai' && !newMsg.read) {
-          setUnreadCount(c => c + 1);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
   const markAllAsRead = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -122,6 +95,42 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       console.warn("Could not sync read status to database.", err);
     }
   };
+
+  useEffect(() => {
+    fetchChatAndMemories();
+
+    // Set up real-time subscription for new messages
+    const channel = supabase
+      .channel('chat_messages_changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages'
+      }, (payload) => {
+        const newMsg = payload.new as Message;
+        
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+
+        if (newMsg.role === 'ai') {
+          const isCurrentlyOnChatPage = window.location.pathname === '/chat';
+          if (isCurrentlyOnChatPage) {
+            // Automatically mark as read since user is looking at the chat
+            markAllAsRead();
+          } else {
+            // Increment unread count since user is on another page
+            setUnreadCount(c => c + 1);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isProcessingRef.current) return;
