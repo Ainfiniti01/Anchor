@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import MobileLayout from '@/components/MobileLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { useChat } from '@/context/ChatContext';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { isFirstTimeUser, refreshChat } = useChat();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showBanner, setShowBanner] = useState(true);
@@ -19,6 +21,8 @@ const Home = () => {
   const [computedStreak, setComputedStreak] = useState(0);
 
   useEffect(() => {
+    refreshChat(); // Sync chat state to detect first-time user accurately
+    
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -178,10 +182,27 @@ const Home = () => {
 
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">Quick Actions</h2>
-          <Button onClick={() => navigate('/chat')} variant="outline" className="w-full h-16 justify-start gap-4 rounded-2xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 px-6">
-            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center"><MessageCircle size={20} /></div>
+          <Button 
+            onClick={() => navigate('/chat')} 
+            variant="outline" 
+            className={`w-full h-16 justify-start gap-4 rounded-2xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 px-6 transition-all duration-500 ${
+              isFirstTimeUser 
+                ? 'ring-4 ring-indigo-500/30 border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 animate-pulse shadow-lg shadow-indigo-500/10' 
+                : ''
+            }`}
+          >
+            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
+              <MessageCircle size={20} />
+            </div>
             <div className="text-left">
-              <p className="font-bold text-slate-900 dark:text-white">Talk to Anchor</p>
+              <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                Talk to Anchor
+                {isFirstTimeUser && (
+                  <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider animate-bounce">
+                    Start Here
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-slate-500">AI Support anytime</p>
             </div>
           </Button>
@@ -199,3 +220,78 @@ const Home = () => {
 };
 
 export default Home;
+</dyad-file>
+
+Now, let's update the `check-in-scheduler` Edge Function to support AI-initiated conversations. When scheduled notifications occur, it will generate a personalized message using Qwen, store it in `chat_messages` with `read: false` (unread), and trigger the notification.
+
+<dyad-write path="supabase/functions/check-in-scheduler/index.ts" description="Updating check-in-scheduler Edge Function to support AI-initiated conversations and mark messages as unread">
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const qwenKey = Deno.env.get('QWEN_API_KEY')!
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // 1. Find users due for a check-in
+    const { data: users } = await supabase
+      .from('profiles')
+      .select('id, next_check_in_at, display_name')
+      .lte('next_check_in_at', new Date().toISOString())
+      .limit(10);
+
+    if (!users || users.length === 0) {
+      return new Response(JSON.stringify({ message: "No check-ins due" }), { headers: corsHeaders });
+    }
+
+    for (const user of users) {
+      console.log(`[check-in-scheduler] Processing check-in for user: ${user.id}`);
+
+      // 2. Generate personalized check-in message using Qwen
+      const { data: memories } = await supabase.rpc('get_prioritized_memories', { p_user_id: user.id });
+      
+      const qwenRes = await fetch("https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${qwenKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "qwen3.7-max-2026-06-08",
+          messages: [
+            { role: "system", content: "You are Anchor. Generate a short, personalized check-in message (1 sentence) based on user memories. No generic greetings." },
+            { role: "user", content: `User: ${user.display_name}. Memories: ${memories?.map(m => m.content).join('; ')}` }
+          ]
+        })
+      });
+
+      const qwenData = await qwenRes.json();
+      const checkInMessage = qwenData.choices[0].message.content;
+
+      // 3. Save to chat history as unread (this triggers the notification and unread badge in real-time)
+      await supabase.from('chat_messages').insert({
+        user_id: user.id,
+        role: 'ai',
+        message: checkInMessage,
+        read: false
+      });
+
+      // 4. Reset scheduler
+      const nextCheckIn = new Date();
+      nextCheckIn.setHours(nextCheckIn.getHours() + 24); // Default to 24h if not specified
+      await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
+    }
+
+    return new Response(JSON.stringify({ success: true, processed: users.length }), { headers: corsHeaders });
+
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
+  }
+})

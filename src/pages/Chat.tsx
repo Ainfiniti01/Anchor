@@ -1,34 +1,50 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ChevronLeft, Info, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Send, ChevronLeft, Info, Loader2, ThumbsUp, ThumbsDown, Sparkles, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import MobileLayout from '@/components/MobileLayout';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
-
-interface Message {
-  id: string;
-  message: string;
-  role: 'user' | 'ai';
-  created_at: string;
-  feedback_given?: boolean;
-}
+import { useChat } from '@/context/ChatContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const Chat = () => {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { 
+    messages, 
+    isTyping, 
+    sendMessage, 
+    markAllAsRead, 
+    isFirstTimeUser, 
+    triggerFirstTimeWelcome,
+    recommendation,
+    setRecommendation,
+    applyRecommendation
+  } = useChat();
+
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetchChatHistory();
-  }, []);
+    markAllAsRead();
+    
+    // If first time user, trigger welcome message automatically
+    if (isFirstTimeUser && messages.length === 0) {
+      triggerFirstTimeWelcome();
+    }
+  }, [isFirstTimeUser, messages.length]);
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
@@ -52,24 +68,6 @@ const Chat = () => {
     }
   }, [input]);
 
-  const fetchChatHistory = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      showError("Failed to load chat history");
-    } else if (data) {
-      setMessages(data);
-    }
-    setLoading(false);
-  };
-
   const handleFeedback = async (messageId: string, isHelpful: boolean) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -83,78 +81,15 @@ const Chat = () => {
     if (error) {
       showError("Failed to save feedback");
     } else {
-      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, feedback_given: true } : m));
       showSuccess(isHelpful ? "Anchor will keep this style!" : "Anchor will adjust its approach.");
     }
   };
 
-  const saveMessage = async (role: 'user' | 'ai', text: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase.from('chat_messages').insert([
-      {
-        user_id: user.id,
-        role: role,
-        message: text
-      }
-    ]).select();
-    
-    return data?.[0]?.id;
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
-
-    const userText = input;
+    const text = input;
     setInput('');
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      message: userText,
-      role: 'user',
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    await saveMessage('user', userText);
-    setIsTyping(true);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("User not authenticated");
-
-      const response = await fetch('https://aymmmpfupfqlmyacilbm.supabase.co/functions/v1/chat-ai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          message: userText,
-          user_id: session.user.id
-        })
-      });
-
-      if (!response.ok) throw new Error("AI Service unavailable");
-
-      const data = await response.json();
-      const aiReply = data.reply;
-      const savedId = await saveMessage('ai', aiReply);
-
-      const aiMsg: Message = {
-        id: savedId || (Date.now() + 1).toString(),
-        message: aiReply,
-        role: 'ai',
-        created_at: new Date().toISOString(),
-      };
-
-      setMessages(prev => [...prev, aiMsg]);
-    } catch (error: any) {
-      showError("Unable to connect to Anchor right now.");
-    } finally {
-      setIsTyping(false);
-    }
+    await sendMessage(text);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -254,6 +189,59 @@ const Chat = () => {
           </div>
         </div>
       </div>
+
+      {/* Notification Recommendation Bottom Sheet Dialog */}
+      <Dialog open={!!recommendation} onOpenChange={(open) => !open && setRecommendation(null)}>
+        <DialogContent className="rounded-3xl max-w-[340px] p-6">
+          <DialogHeader className="space-y-2">
+            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-2">
+              <Sparkles size={24} className="animate-pulse" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+              Smart Schedule Recommendation
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Anchor recommends adjusting your check-ins based on your recovery pattern.
+            </DialogDescription>
+          </DialogHeader>
+
+          {recommendation && (
+            <div className="space-y-4 py-3">
+              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Frequency</span>
+                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{recommendation.recommended_frequency}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Suggested Times</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{recommendation.recommended_times}</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
+                "{recommendation.explanation}"
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end pt-2">
+            <Button 
+              onClick={applyRecommendation}
+              className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold text-sm text-white flex items-center justify-center gap-2"
+            >
+              <Check size={16} />
+              Apply Schedule
+            </Button>
+            <Button 
+              variant="ghost"
+              onClick={() => setRecommendation(null)}
+              className="w-full h-11 rounded-xl text-slate-500 font-bold text-sm flex items-center justify-center gap-2"
+            >
+              <X size={16} />
+              Not now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MobileLayout>
   );
 };

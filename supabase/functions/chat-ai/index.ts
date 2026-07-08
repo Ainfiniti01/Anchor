@@ -38,10 +38,10 @@ serve(async (req) => {
       return new Response('Unauthorized', { status: 401, headers: corsHeaders })
     }
 
-    const { message } = await req.json()
-    console.log(`[${functionName}] Processing message for user: ${user.id}`);
+    const { message, is_first_time } = await req.json()
+    console.log(`[${functionName}] Processing message for user: ${user.id}, is_first_time: ${is_first_time}`);
 
-    const lowerMessage = message.toLowerCase().trim();
+    const lowerMessage = (message || '').toLowerCase().trim();
 
     const isGreeting = [
       "hi",
@@ -56,8 +56,6 @@ serve(async (req) => {
       "evening",
       "good evening"
     ].includes(lowerMessage);
-
-    const isShort = lowerMessage.length < 10;
 
     // 0. Apply memory decay
     const { error: decayError } = await supabase.rpc("apply_memory_decay");
@@ -117,6 +115,8 @@ The user should never feel like they are talking to software.
 Model: Qwen-Max (Alibaba Cloud)
 
 CONVERSATION STATE
+
+${is_first_time ? `This is the user's very first interaction with you. Welcome them warmly, introduce yourself as Anchor, and explain how you can support them in their recovery journey. Keep it brief, empathetic, and supportive.` : ''}
 
 If the user's message is simply a greeting or a very low-information message:
 
@@ -264,39 +264,44 @@ Return valid JSON only.
 
   "reinforced_memory_ids": [],
 
-  "suggested_check_in_hours": number
+  "suggested_check_in_hours": number,
+
+  "notification_recommendation": {
+    "recommended_frequency": "string (e.g., 'Twice per day', 'Once per day', 'Three times per day')",
+    "recommended_times": "string (e.g., '9:00 AM and 6:00 PM')",
+    "explanation": "string (short explanation of why this change is recommended based on their patterns)"
+  }
 }
 `;
 
     const qwenResponse = await fetch(
-  "https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${qwenKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "qwen3.7-max-2026-06-08",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...history.map(h => ({
-          role: h.role === "ai" ? "assistant" : "user",
-          content: h.message,
-        })),
-        { role: "user", content: message },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  }
-);
+      "https://ws-12c4bsjrjqxy8v2b.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${qwenKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "qwen3.7-max-2026-06-08",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...history.map(h => ({
+              role: h.role === "ai" ? "assistant" : "user",
+              content: h.message,
+            })),
+            { role: "user", content: message || "Hello Anchor" },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      }
+    );
 
     if (!qwenResponse.ok) {
       const errorText = await qwenResponse.text();
       console.error(`[${functionName}] Qwen API error (${qwenResponse.status}):`, errorText);
       throw new Error(`Qwen API returned ${qwenResponse.status}`);
     }
-
 
     const qwenData = await qwenResponse.json();
     console.log(`[${functionName}] Qwen API response received`);
@@ -363,7 +368,10 @@ Return valid JSON only.
       console.error(`[${functionName}] Failed to call evaluate-user:`, evalError.message);
     }
 
-    return new Response(JSON.stringify({ reply: result.reply }), { 
+    return new Response(JSON.stringify({ 
+      reply: result.reply,
+      notification_recommendation: result.notification_recommendation 
+    }), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
 
