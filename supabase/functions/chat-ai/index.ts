@@ -88,13 +88,13 @@ serve(async (req) => {
 
     if (memError) console.warn(`[${functionName}] Memory retrieval error:`, memError);
 
-    const [
+   const [
   profileRes,
   summaryRes,
   historyRes,
-  recoveryProfileRes,
   latestCheckInRes,
   latestUrgeRes,
+  recoveryProfileRes,
   latestRelapseRes
 ] = await Promise.all([
   supabase
@@ -582,6 +582,29 @@ Always remember:
 
 These are high-priority memories and should rarely be forgotten.
 
+Never ask the user for information that already exists in:
+
+• Recovery Profile
+
+• Current App State
+
+• Permanent Memories
+
+If the answer already exists, use it naturally.
+
+Example:
+
+User:
+"What is my addiction?"
+
+Correct:
+
+"You've told me you're recovering from pornography and masturbation addiction."
+
+Incorrect:
+
+"What addiction are you struggling with?"
+
 `;
 
     const qwenResponse = await fetch(
@@ -700,17 +723,16 @@ These are high-priority memories and should rarely be forgotten.
 
     // 4. SCHEDULE: Update next check-in time based on conversation
 
-    if (result.suggested_check_in_hours) {
+    // if(result.notification_recommendation?.enabled){
+    //   // save recommendation
+    //   } 
+    //   console.log(`[${functionName}] Scheduling next check-in in ${result.suggested_check_in_hours} hours`);
 
-      console.log(`[${functionName}] Scheduling next check-in in ${result.suggested_check_in_hours} hours`);
+    //   const nextCheckIn = new Date();
 
-      const nextCheckIn = new Date();
+    //   nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
 
-      nextCheckIn.setHours(nextCheckIn.getHours() + result.suggested_check_in_hours);
-
-      await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
-
-    }
+    //   await supabase.from('profiles').update({ next_check_in_at: nextCheckIn.toISOString() }).eq('id', user.id);
 
     // NEW: TRIGGER EVALUATION ON CHAT EVENT
 
