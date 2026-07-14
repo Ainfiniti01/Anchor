@@ -51,12 +51,12 @@ This enables long-term personalized support while maintaining an efficient conte
 ### 🏠 Home Dashboard & 💬 AI Chat Companion
 | Home Dashboard | AI Chat Companion |
 | :---: | :---: |
-| ![Home Page](assets/images/Home.png) | ![Chat Page](assets/images/Chat.png) |
+| ![Home Page](assets/images/home.png) | ![Chat Page](assets/images/chat.png) |
 
 ### 📈 Progress Analytics & ⚙️ Privacy Settings
 | Progress Analytics | Privacy Settings |
 | :---: | :---: |
-| ![Progress Page](assets/images/Progress.png) | ![Settings Page](assets/images/Settings.png) |
+| ![Progress Page](assets/images/progress.png) | ![Settings Page](assets/images/settings.png) |
 
 ## 🎥 Demo
 
